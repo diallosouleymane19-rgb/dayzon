@@ -13,6 +13,9 @@ font = "sans serif"
 # une erreur de dépôt.
 maxUploadSize = 20
 
+# Sert le dossier static/ : nécessaire au manifeste et aux icônes de la PWA.
+enableStaticServing = true
+
 # Protection contre les requêtes forgées. Streamlit exige que CORS reste
 # activé pour que cette protection fonctionne : on ne la désactive donc pas.
 enableXsrfProtection = true

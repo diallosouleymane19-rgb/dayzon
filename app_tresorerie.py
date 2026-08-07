@@ -22,7 +22,12 @@ from moteur_tresorerie import Recurrence
 from vue_comptes import panneau_comptes, panneau_sauvegarde, panneau_taux
 
 st.set_page_config(page_title="Dayzon — Gestion financière",
-                   page_icon="📊", layout="wide")
+                   page_icon="app/static/favicon.png", layout="wide",
+                   initial_sidebar_state="expanded")
+
+# Rend l'application installable sur téléphone et adapte l'affichage mobile.
+import pwa
+pwa.activer()
 
 # Prépare la session et recharge la sauvegarde si elle existe.
 commun.initialiser()
@@ -137,6 +142,7 @@ with st.sidebar:
 
     st.divider()
     panneau_sauvegarde()
+    pwa.message_installation()
 
 
 # ---------------------------------------------------------------------------
