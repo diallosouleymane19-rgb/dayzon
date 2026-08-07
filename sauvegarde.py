@@ -34,6 +34,65 @@ VERSION_FORMAT = 1
 NOM_FICHIER = "dayzon_donnees.json"
 
 
+# ---------------------------------------------------------------------------
+# Local ou hébergé — la distinction qui protège les données
+# ---------------------------------------------------------------------------
+
+def mode_local() -> bool:
+    """
+    Vrai seulement si l'application tourne sur la machine de l'utilisateur.
+
+    C'EST LA QUESTION LA PLUS IMPORTANTE DE CE MODULE.
+
+    Sur un serveur partagé, « le dossier de l'utilisateur » est celui du
+    serveur, commun à tous les visiteurs. Y écrire ferait lire à chacun les
+    données financières du précédent. Le fichier de sauvegarde est donc
+    strictement réservé à l'exécution locale.
+
+    La détection est volontairement pessimiste : au moindre indice
+    d'hébergement, on considère que l'on n'est PAS en local. Se tromper dans
+    ce sens fait perdre une commodité ; se tromper dans l'autre expose les
+    relevés bancaires de quelqu'un.
+    """
+    indices_heberges = (
+        # Streamlit Community Cloud déploie sous /mount/src
+        os.path.isdir("/mount/src"),
+        os.environ.get("HOSTNAME", "").startswith("streamlit"),
+        # Conteneurs et plateformes courantes
+        os.path.exists("/.dockerenv"),
+        bool(os.environ.get("DYNO")),           # Heroku
+        bool(os.environ.get("RENDER")),         # Render
+        bool(os.environ.get("RAILWAY_ENVIRONMENT")),
+        bool(os.environ.get("FLY_APP_NAME")),
+        bool(os.environ.get("K_SERVICE")),      # Cloud Run
+        bool(os.environ.get("WEBSITE_INSTANCE_ID")),   # Azure
+        bool(os.environ.get("AWS_EXECUTION_ENV")),
+        bool(os.environ.get("CODESPACES")),
+        bool(os.environ.get("GITPOD_WORKSPACE_ID")),
+        # Une variable explicite permet de forcer le mode hébergé.
+        os.environ.get("DAYZON_HEBERGE", "").lower() in ("1", "true", "oui"),
+    )
+    if any(indices_heberges):
+        return False
+
+    # Un poste de travail a un dossier personnel accessible en écriture.
+    try:
+        maison = Path.home()
+        return maison.exists() and os.access(maison, os.W_OK)
+    except Exception:
+        return False
+
+
+def raison_mode() -> str:
+    """Phrase affichable expliquant où vont les données."""
+    if mode_local():
+        return ("Vos données sont enregistrées sur cet ordinateur, "
+                "dans votre dossier personnel.")
+    return ("En ligne, rien n'est enregistré sur le serveur : vos données "
+            "restent dans votre navigateur le temps de la visite. "
+            "Téléchargez votre fichier pour les conserver.")
+
+
 class ErreurSauvegarde(Exception):
     """Le message est destiné à l'utilisateur, pas au journal technique."""
 
@@ -148,6 +207,14 @@ def enregistrer(donnees: Donnees, chemin: Path | str | None = None) -> Path:
     l'ancien d'un seul mouvement. Une coupure de courant pendant l'écriture
     laisse donc l'ancien fichier intact — jamais un fichier tronqué.
     """
+    # Garde-fou : sans chemin explicite, on n'écrit jamais hors du poste
+    # de l'utilisateur. Un serveur partagé mélangerait les visiteurs.
+    if chemin is None and not mode_local():
+        raise ErreurSauvegarde(
+            "L'enregistrement automatique est désactivé en ligne : le serveur "
+            "est partagé entre tous les visiteurs. Utilisez « Télécharger mes "
+            "données » pour conserver votre travail.")
+
     chemin = Path(chemin or chemin_par_defaut())
     donnees.enregistre_le = datetime.now()
 
@@ -198,6 +265,11 @@ def charger(chemin: Path | str | None = None) -> Donnees | None:
     Un fichier illisible est mis de côté plutôt qu'écrasé : les données de
     l'utilisateur ne nous appartiennent pas.
     """
+    # Même garde-fou en lecture : sur un serveur, ce fichier appartiendrait
+    # à un autre visiteur.
+    if chemin is None and not mode_local():
+        return None
+
     chemin = Path(chemin or chemin_par_defaut())
     if not chemin.exists():
         return None
@@ -289,6 +361,11 @@ def supprimer(chemin: Path | str | None = None) -> bool:
 
 def informations(chemin: Path | str | None = None) -> dict | None:
     """Taille et date du fichier, pour l'afficher dans les réglages."""
+    # Même garde-fou en lecture : sur un serveur, ce fichier appartiendrait
+    # à un autre visiteur.
+    if chemin is None and not mode_local():
+        return None
+
     chemin = Path(chemin or chemin_par_defaut())
     if not chemin.exists():
         return None
@@ -313,3 +390,86 @@ def exporter_vers(source: Path | str | None, destination: Path | str) -> Path:
     destination.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(source, destination)
     return destination
+
+
+# ---------------------------------------------------------------------------
+# Emporter ses données — indispensable en ligne
+# ---------------------------------------------------------------------------
+
+def vers_octets(donnees: Donnees) -> bytes:
+    """
+    Produit le fichier de sauvegarde en mémoire, sans rien écrire sur disque.
+
+    C'est ce qui permet à un visiteur d'emporter ses données depuis une
+    application hébergée : le fichier passe du navigateur à son appareil,
+    sans jamais séjourner sur le serveur.
+    """
+    donnees.enregistre_le = datetime.now()
+    contenu = {
+        "version_format": VERSION_FORMAT,
+        "application": "Dayzon",
+        "enregistre_le": donnees.enregistre_le.isoformat(),
+        "profil": donnees.profil,
+        "devise_reference": donnees.devise_reference,
+        "comptes": donnees.comptes,
+        "operations": donnees.operations,
+        "taux": donnees.taux,
+    }
+    try:
+        texte = json.dumps(contenu, default=_encoder, ensure_ascii=False, indent=2)
+    except TypeError as err:
+        raise ErreurSauvegarde(f"Donnée impossible à enregistrer : {err}")
+    return texte.encode("utf-8")
+
+
+def depuis_octets(donnees_brutes: bytes) -> Donnees:
+    """
+    Relit un fichier déposé par l'utilisateur.
+
+    Les mêmes contrôles qu'à la lecture disque s'appliquent : un fichier
+    illisible ou trop récent est refusé avec un message clair, jamais
+    silencieusement ignoré.
+    """
+    try:
+        texte = donnees_brutes.decode("utf-8")
+    except UnicodeDecodeError:
+        raise ErreurSauvegarde(
+            "Ce fichier n'est pas un fichier Dayzon : son encodage est illisible.")
+
+    try:
+        brut = json.loads(texte, object_hook=_decoder)
+    except json.JSONDecodeError as err:
+        raise ErreurSauvegarde(
+            f"Ce fichier n'est pas un fichier Dayzon valide (ligne {err.lineno}).")
+
+    if not isinstance(brut, dict):
+        raise ErreurSauvegarde("Ce fichier n'a pas le format attendu.")
+
+    version = brut.get("version_format", 0)
+    if version > VERSION_FORMAT:
+        raise ErreurSauvegarde(
+            f"Ce fichier a été créé par une version plus récente de Dayzon "
+            f"(format {version}). Mettez l'application à jour pour l'ouvrir.")
+
+    brut = _migrer(brut, version)
+
+    enregistre = brut.get("enregistre_le")
+    if isinstance(enregistre, str):
+        try:
+            enregistre = datetime.fromisoformat(enregistre)
+        except ValueError:
+            enregistre = None
+
+    return Donnees(
+        profil=brut.get("profil", "Particulier"),
+        devise_reference=brut.get("devise_reference", "EUR"),
+        comptes=brut.get("comptes") or [],
+        operations=brut.get("operations") or [],
+        taux=brut.get("taux") or [],
+        enregistre_le=enregistre if isinstance(enregistre, datetime) else None,
+    )
+
+
+def nom_fichier_export() -> str:
+    """Nom daté, pour que l'utilisateur retrouve ses sauvegardes successives."""
+    return f"dayzon_{datetime.now().strftime('%Y%m%d_%H%M')}.json"

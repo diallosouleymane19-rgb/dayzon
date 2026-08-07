@@ -69,9 +69,14 @@ def initialiser() -> None:
     st.session_state.setdefault("operations", [])
     st.session_state.setdefault("portefeuille", Portefeuille(devise_reference="EUR"))
     st.session_state.setdefault("taux", table_par_defaut())
-    st.session_state.setdefault("sauvegarde_auto", True)
+    # L'enregistrement automatique n'a de sens que sur le poste de
+    # l'utilisateur. En ligne, il exporterait ses données vers un fichier
+    # partagé avec les autres visiteurs.
+    st.session_state.setdefault("sauvegarde_auto", sv.mode_local())
     st.session_state.setdefault("message_demarrage", None)
 
+    # En ligne, `charger()` renvoie None de lui-même : le fichier du serveur
+    # appartiendrait à un autre visiteur.
     try:
         donnees = sv.charger()
     except sv.ErreurSauvegarde as err:
@@ -154,6 +159,11 @@ def enregistrer(force: bool = False) -> bool:
     erreur technique à chaque frappe rendrait l'application inutilisable.
     L'échec reste visible dans l'écran des réglages.
     """
+    if not sv.mode_local():
+        # Rien à faire : en ligne, les données ne quittent pas la session.
+        # L'utilisateur les emporte par « Télécharger mes données ».
+        return False
+
     if not force and not st.session_state.get("sauvegarde_auto", True):
         return False
 
@@ -286,3 +296,32 @@ def solde_initial_compatible() -> float:
     Conservé le temps que toutes basculent sur `solde_de_depart()`.
     """
     return float(solde_de_depart())
+
+
+# ---------------------------------------------------------------------------
+# Emporter et reprendre ses données
+# ---------------------------------------------------------------------------
+
+def donnees_courantes() -> sv.Donnees:
+    """L'état de la session, sous une forme enregistrable."""
+    return sv.Donnees(
+        profil=st.session_state.get("profil", "Particulier"),
+        devise_reference=devise_reference(),
+        comptes=portefeuille().vers_liste(),
+        operations=_operations_serialisables(),
+        taux=[{"base": t.base, "contre": t.contre, "valeur": str(t.valeur),
+               "observe_le": t.observe_le.isoformat(), "source": t.source}
+              for t in _taux_uniques(taux())],
+    )
+
+
+def exporter_octets() -> bytes:
+    """Le fichier de sauvegarde, prêt à être téléchargé."""
+    return sv.vers_octets(donnees_courantes())
+
+
+def importer_octets(donnees_brutes: bytes) -> sv.Donnees:
+    """Reprend une sauvegarde déposée par l'utilisateur."""
+    donnees = sv.depuis_octets(donnees_brutes)
+    _appliquer(donnees)
+    return donnees

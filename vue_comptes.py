@@ -241,46 +241,101 @@ def panneau_taux() -> None:
 # ---------------------------------------------------------------------------
 
 def panneau_sauvegarde() -> None:
-    with st.expander("💾 Sauvegarde"):
-        st.session_state.sauvegarde_auto = st.toggle(
-            "Enregistrer automatiquement", value=st.session_state.sauvegarde_auto,
-            help="Vos données restent sur cet ordinateur. Rien n'est envoyé.")
+    """
+    L'écran de sauvegarde, différent selon l'endroit où l'application tourne.
 
-        infos = sv.informations()
-        if infos:
-            st.caption(f"Dernier enregistrement : "
-                       f"{infos['modifie_le'].strftime('%d/%m/%Y à %H:%M')} "
-                       f"· {infos['taille_ko']} Ko")
-            st.caption(f"Emplacement : `{infos['chemin']}`")
+    En ligne, l'enregistrement automatique n'existe pas : le serveur est
+    partagé entre tous les visiteurs. On le dit clairement plutôt que de
+    laisser croire à une sauvegarde qui n'aurait pas lieu.
+    """
+    local = sv.mode_local()
+    titre = "💾 Sauvegarde" if local else "💾 Vos données"
+
+    with st.expander(titre):
+        st.caption(sv.raison_mode())
+
+        if local:
+            _sauvegarde_locale()
         else:
-            st.caption("Aucune sauvegarde pour le moment.")
+            st.info("**Rien n'est enregistré sur le serveur.** Vos comptes et "
+                    "vos opérations disparaissent en fermant l'onglet. "
+                    "Téléchargez votre fichier pour les retrouver plus tard.")
 
-        erreur = st.session_state.get("erreur_sauvegarde")
-        if erreur:
-            st.error(erreur)
+        st.divider()
+        _emporter_et_reprendre()
 
-        c1, c2 = st.columns(2)
-        if c1.button("Enregistrer", use_container_width=True):
-            try:
-                commun.enregistrer(force=True)
-                st.success("Enregistré.")
-            except sv.ErreurSauvegarde as err:
-                st.error(str(err))
 
-        if infos and c2.button("Effacer", use_container_width=True,
-                               help="Supprime la sauvegarde de cet ordinateur."):
-            st.session_state.confirmer_effacement = True
+def _emporter_et_reprendre() -> None:
+    """Télécharger son fichier, et le redéposer plus tard ou ailleurs."""
+    st.caption("**Emporter mes données**")
+    try:
+        st.download_button(
+            "⬇️ Télécharger mes données",
+            data=commun.exporter_octets(),
+            file_name=sv.nom_fichier_export(),
+            mime="application/json",
+            use_container_width=True,
+            help="Un fichier que vous conservez. Il ne passe pas par le serveur.")
+    except sv.ErreurSauvegarde as err:
+        st.error(str(err))
 
-        if st.session_state.get("confirmer_effacement"):
-            st.warning("**Effacer définitivement la sauvegarde ?** "
-                       "Vos comptes et opérations en cours restent affichés "
-                       "jusqu'à la fermeture.")
-            d1, d2 = st.columns(2)
-            if d1.button("Oui, effacer", type="primary", use_container_width=True):
-                sv.supprimer()
-                st.session_state.confirmer_effacement = False
-                st.session_state.sauvegarde_auto = False
-                st.rerun()
-            if d2.button("Annuler", use_container_width=True):
-                st.session_state.confirmer_effacement = False
-                st.rerun()
+    st.caption("**Reprendre un fichier**")
+    depose = st.file_uploader("Fichier Dayzon", type=["json"],
+                              key="reprise_fichier",
+                              label_visibility="collapsed")
+    if depose is not None and st.button("Charger ce fichier",
+                                        use_container_width=True,
+                                        key="btn_reprise"):
+        try:
+            donnees = commun.importer_octets(depose.getvalue())
+            st.success(f"Repris : {donnees.resume()}.")
+            st.rerun()
+        except sv.ErreurSauvegarde as err:
+            st.error(str(err))
+
+
+def _sauvegarde_locale() -> None:
+    """Enregistrement automatique sur le poste de l'utilisateur."""
+    st.session_state.sauvegarde_auto = st.toggle(
+        "Enregistrer automatiquement",
+        value=st.session_state.sauvegarde_auto,
+        help="Vos données restent sur cet ordinateur. Rien n'est envoyé.")
+
+    infos = sv.informations()
+    if infos:
+        st.caption(f"Dernier enregistrement : "
+                   f"{infos['modifie_le'].strftime('%d/%m/%Y à %H:%M')} "
+                   f"· {infos['taille_ko']} Ko")
+        st.caption(f"Emplacement : `{infos['chemin']}`")
+    else:
+        st.caption("Aucune sauvegarde pour le moment.")
+
+    erreur = st.session_state.get("erreur_sauvegarde")
+    if erreur:
+        st.error(erreur)
+
+    c1, c2 = st.columns(2)
+    if c1.button("Enregistrer", use_container_width=True):
+        try:
+            commun.enregistrer(force=True)
+            st.success("Enregistré.")
+        except sv.ErreurSauvegarde as err:
+            st.error(str(err))
+
+    if infos and c2.button("Effacer", use_container_width=True,
+                           help="Supprime la sauvegarde de cet ordinateur."):
+        st.session_state.confirmer_effacement = True
+
+    if st.session_state.get("confirmer_effacement"):
+        st.warning("**Effacer définitivement la sauvegarde ?** "
+                   "Vos comptes et opérations en cours restent affichés "
+                   "jusqu'à la fermeture.")
+        d1, d2 = st.columns(2)
+        if d1.button("Oui, effacer", type="primary", use_container_width=True):
+            sv.supprimer()
+            st.session_state.confirmer_effacement = False
+            st.session_state.sauvegarde_auto = False
+            st.rerun()
+        if d2.button("Annuler", use_container_width=True):
+            st.session_state.confirmer_effacement = False
+            st.rerun()
