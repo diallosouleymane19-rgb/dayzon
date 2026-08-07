@@ -1,0 +1,27 @@
+# Apparence de Dayzon
+# Les couleurs reprennent celles des maquettes : vert d'eau et bleu profond.
+
+[theme]
+primaryColor = "#1F7244"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F4F7F8"
+textColor = "#142837"
+font = "sans serif"
+
+[server]
+# Un relevé bancaire dépasse rarement 20 Mo ; au-delà, c'est probablement
+# une erreur de dépôt.
+maxUploadSize = 20
+
+# Protection contre les requêtes forgées. Streamlit exige que CORS reste
+# activé pour que cette protection fonctionne : on ne la désactive donc pas.
+enableXsrfProtection = true
+
+[browser]
+# Aucune statistique d'usage n'est transmise : l'application traite des
+# données financières, la discrétion est la règle par défaut.
+gatherUsageStats = false
+
+[client]
+# Une erreur technique complète à l'écran effraie et n'aide personne.
+showErrorDetails = false

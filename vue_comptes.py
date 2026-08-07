@@ -1,0 +1,286 @@
+"""
+PANNEAU DES COMPTES ET DES TAUX
+Dayzon — SMD Global Consulting LLC
+
+Remplace l'ancien réglage à solde unique. Trois choses y sont visibles :
+
+  · vos comptes, chacun dans sa devise de tenue ;
+  · le total consolidé, **accompagné des taux qui l'ont produit** ;
+  · l'état de la sauvegarde.
+
+Le total n'est jamais affiché seul. L'audit l'exige, et c'est de toute façon
+la seule façon honnête de présenter une somme convertie.
+"""
+
+from __future__ import annotations
+
+from datetime import date
+from decimal import Decimal
+
+import streamlit as st
+
+import argent
+import commun
+import sauvegarde as sv
+from argent import ErreurArgent, Montant, Taux, nom_devise
+from comptes import Compte, ErreurCompte
+
+VERT, ROUGE, ORANGE = "#1F7244", "#C0392B", "#E67E22"
+
+# Au-delà, un taux mérite d'être revérifié avant de servir à décider.
+JOURS_AVANT_ALERTE_TAUX = 60
+
+
+# ---------------------------------------------------------------------------
+# Les comptes
+# ---------------------------------------------------------------------------
+
+def panneau_comptes(entreprise: bool) -> None:
+    p = commun.portefeuille()
+
+    st.subheader("💼 Vos comptes")
+
+    if p.vide:
+        st.caption("Ajoutez au moins un compte pour démarrer. "
+                   "Chaque compte garde sa propre devise.")
+    else:
+        for c in p.comptes:
+            l1, l2 = st.columns([4, 1])
+            couleur = "#111" if c.actif else "#aaa"
+            l1.markdown(
+                f"<div style='line-height:1.25'>"
+                f"<span style='font-weight:600;color:{couleur}'>{c.nom}</span>"
+                f"<span style='font-size:11px;color:#888'> · {c.devise}"
+                f"{' · ' + c.etablissement if c.etablissement else ''}"
+                f"{'' if c.actif else ' · clos'}</span><br>"
+                f"<span style='font-size:13px;font-weight:600;color:"
+                f"{ROUGE if c.solde < 0 else '#333'}'>"
+                f"{c.montant.formater()}</span></div>",
+                unsafe_allow_html=True)
+            if l2.button("✕", key=f"del_cpt_{c.identifiant}",
+                         help=f"Retirer « {c.nom} »"):
+                p.retirer(c.identifiant)
+                commun.enregistrer()
+                st.rerun()
+
+    with st.expander("Ajouter un compte", expanded=p.vide):
+        with st.form("ajout_compte", clear_on_submit=True):
+            nom = st.text_input(
+                "Nom du compte",
+                placeholder="Compte courant, Caisse, Wave Sénégal…")
+            c1, c2 = st.columns(2)
+            with c1:
+                devise = st.selectbox(
+                    "Devise de tenue", commun.DEVISES_PROPOSEES,
+                    format_func=lambda d: f"{d} — {nom_devise(d)}",
+                    help="La devise dans laquelle ce compte est tenu. "
+                         "Elle ne change plus ensuite.")
+            with c2:
+                solde = st.number_input("Solde actuel", value=0.0, step=100.0,
+                                        format="%.2f")
+            etablissement = st.text_input(
+                "Banque ou établissement (facultatif)",
+                placeholder="Crédit Agricole, Wise, Orange Money…")
+
+            if st.form_submit_button("Ajouter ce compte", type="primary",
+                                     use_container_width=True):
+                try:
+                    p.ajouter(Compte(nom=nom or "Compte", devise=devise,
+                                     solde=Decimal(str(solde)),
+                                     etablissement=etablissement.strip()))
+                    commun.enregistrer()
+                    st.rerun()
+                except (ErreurCompte, ErreurArgent) as err:
+                    st.error(str(err))
+
+    if p.vide:
+        return
+
+    # --- Devise de référence ---
+    devises_possibles = sorted(set(commun.DEVISES_PROPOSEES) | set(p.devises))
+    actuelle = commun.devise_reference()
+    choisie = st.selectbox(
+        "Afficher les totaux en", devises_possibles,
+        index=devises_possibles.index(actuelle) if actuelle in devises_possibles else 0,
+        format_func=lambda d: f"{d} — {nom_devise(d)}",
+        help="Vos comptes gardent leur devise. Seul le total est converti.")
+    if choisie != actuelle:
+        st.session_state.devise = choisie
+        p.definir_reference(choisie)
+        commun.enregistrer()
+        st.rerun()
+
+    _total_consolide(p)
+
+
+def _total_consolide(p) -> None:
+    """Le total, et ce qui permet de le vérifier."""
+    cons = commun.consolidation()
+
+    if cons is None:
+        st.warning(
+            f"Impossible de calculer un total en {commun.devise_reference()} : "
+            f"il manque un taux. Renseignez-le ci-dessous, ou choisissez une "
+            f"devise de référence présente dans vos comptes.")
+        partiel = p.solde_devise(commun.devise_reference())
+        st.caption(f"Affiché sans conversion : {partiel.formater()}")
+        return
+
+    st.markdown(
+        f"<div style='background:#f4f7f8;border-radius:10px;padding:10px 12px;"
+        f"margin-top:6px'>"
+        f"<div style='font-size:10px;color:#777;letter-spacing:.4px'>"
+        f"TOTAL CONSOLIDÉ</div>"
+        f"<div style='font-size:21px;font-weight:700;color:"
+        f"{ROUGE if cons.total.negatif else '#123e53'}'>"
+        f"{cons.total.formater()}</div>"
+        f"<div style='font-size:10px;color:#888'>{cons.comptes_retenus} compte"
+        f"{'s' if cons.comptes_retenus > 1 else ''} · "
+        f"{len(cons.par_devise)} devise"
+        f"{'s' if len(cons.par_devise) > 1 else ''}</div></div>",
+        unsafe_allow_html=True)
+
+    if not cons.multidevise:
+        return
+
+    # C'est ici que se corrige le défaut relevé : le taux employé est visible,
+    # daté et sourcé, au lieu d'un total converti sans justification.
+    with st.expander("D'où vient ce total ?"):
+        for devise, sous_total in cons.par_devise.items():
+            st.caption(f"**{sous_total.formater()}** en {nom_devise(devise)}")
+        st.divider()
+        st.caption("**Taux employés**")
+        for t in cons.taux_employes:
+            age = t.anciennete()
+            couleur = ORANGE if age > JOURS_AVANT_ALERTE_TAUX else "#666"
+            st.markdown(
+                f"<div style='font-size:11px;color:{couleur}'>{t.phrase()} "
+                f"— il y a {age} jour{'s' if age > 1 else ''}</div>",
+                unsafe_allow_html=True)
+
+    age_max = cons.anciennete_max()
+    if age_max > JOURS_AVANT_ALERTE_TAUX:
+        st.caption(f"⚠️ Le taux le plus ancien date de {age_max} jours. "
+                   f"Vérifiez-le avant de décider sur ce total.")
+
+
+# ---------------------------------------------------------------------------
+# Les taux
+# ---------------------------------------------------------------------------
+
+def panneau_taux() -> None:
+    table = commun.taux()
+    p = commun.portefeuille()
+    reference = commun.devise_reference()
+
+    besoins = [d for d in p.devises if d != reference]
+    manquants = [d for d in besoins if table.trouver(d, reference) is None]
+
+    titre = "💱 Taux de change"
+    if manquants:
+        titre += f" — {len(manquants)} manquant{'s' if len(manquants) > 1 else ''}"
+
+    with st.expander(titre, expanded=bool(manquants)):
+        st.caption("Ces taux sont saisis à la main. Ils portent leur date et "
+                   "leur source pour que vos totaux restent justifiables.")
+
+        if manquants:
+            st.warning(f"Taux à renseigner : {', '.join(manquants)}")
+
+        for devise in besoins:
+            t = table.trouver(devise, reference)
+            if t is None:
+                st.markdown(f"**{devise} → {reference}** · _à renseigner_")
+                continue
+            age = t.anciennete()
+            marque = "⚠️ " if age > JOURS_AVANT_ALERTE_TAUX else ""
+            st.markdown(
+                f"<div style='font-size:11px'>{marque}<b>1 {t.base}</b> = "
+                f"{t.valeur.normalize():f} {t.contre}<br>"
+                f"<span style='color:#888'>{t.observe_le.strftime('%d/%m/%Y')} · "
+                f"{t.source}</span></div>", unsafe_allow_html=True)
+
+        st.divider()
+        with st.form("ajout_taux", clear_on_submit=True):
+            st.caption("Corriger ou ajouter un taux")
+            c1, c2 = st.columns(2)
+            with c1:
+                base = st.selectbox("De", commun.DEVISES_PROPOSEES,
+                                    index=commun.DEVISES_PROPOSEES.index(
+                                        manquants[0]) if manquants else 1)
+            with c2:
+                contre = st.selectbox(
+                    "Vers", commun.DEVISES_PROPOSEES,
+                    index=commun.DEVISES_PROPOSEES.index(reference)
+                    if reference in commun.DEVISES_PROPOSEES else 0)
+            valeur = st.number_input("1 unité vaut", value=1.0, step=0.01,
+                                     format="%.6f")
+            c3, c4 = st.columns(2)
+            with c3:
+                observe = st.date_input("Constaté le", value=date.today())
+            with c4:
+                source = st.text_input("Source", value="saisie manuelle",
+                                       help="BCE, votre banque, un site de "
+                                            "change… pour pouvoir le justifier.")
+
+            if st.form_submit_button("Enregistrer ce taux",
+                                     use_container_width=True):
+                try:
+                    table.ajouter(Taux(base=base, contre=contre,
+                                       valeur=Decimal(str(valeur)),
+                                       observe_le=observe,
+                                       source=source or "saisie manuelle"))
+                    commun.enregistrer()
+                    st.rerun()
+                except ErreurArgent as err:
+                    st.error(str(err))
+
+
+# ---------------------------------------------------------------------------
+# La sauvegarde
+# ---------------------------------------------------------------------------
+
+def panneau_sauvegarde() -> None:
+    with st.expander("💾 Sauvegarde"):
+        st.session_state.sauvegarde_auto = st.toggle(
+            "Enregistrer automatiquement", value=st.session_state.sauvegarde_auto,
+            help="Vos données restent sur cet ordinateur. Rien n'est envoyé.")
+
+        infos = sv.informations()
+        if infos:
+            st.caption(f"Dernier enregistrement : "
+                       f"{infos['modifie_le'].strftime('%d/%m/%Y à %H:%M')} "
+                       f"· {infos['taille_ko']} Ko")
+            st.caption(f"Emplacement : `{infos['chemin']}`")
+        else:
+            st.caption("Aucune sauvegarde pour le moment.")
+
+        erreur = st.session_state.get("erreur_sauvegarde")
+        if erreur:
+            st.error(erreur)
+
+        c1, c2 = st.columns(2)
+        if c1.button("Enregistrer", use_container_width=True):
+            try:
+                commun.enregistrer(force=True)
+                st.success("Enregistré.")
+            except sv.ErreurSauvegarde as err:
+                st.error(str(err))
+
+        if infos and c2.button("Effacer", use_container_width=True,
+                               help="Supprime la sauvegarde de cet ordinateur."):
+            st.session_state.confirmer_effacement = True
+
+        if st.session_state.get("confirmer_effacement"):
+            st.warning("**Effacer définitivement la sauvegarde ?** "
+                       "Vos comptes et opérations en cours restent affichés "
+                       "jusqu'à la fermeture.")
+            d1, d2 = st.columns(2)
+            if d1.button("Oui, effacer", type="primary", use_container_width=True):
+                sv.supprimer()
+                st.session_state.confirmer_effacement = False
+                st.session_state.sauvegarde_auto = False
+                st.rerun()
+            if d2.button("Annuler", use_container_width=True):
+                st.session_state.confirmer_effacement = False
+                st.rerun()

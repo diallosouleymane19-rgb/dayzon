@@ -1,0 +1,387 @@
+"""
+PROFIL ENTREPRISE — affichage
+Dayzon — SMD Global Consulting LLC
+
+Analyse financiere pure : aucun plan de comptes, aucun referentiel national.
+Les indicateurs portent les memes noms partout dans le monde.
+"""
+
+from __future__ import annotations
+
+from datetime import date
+from decimal import Decimal
+
+import pandas as pd
+import streamlit as st
+
+from analyse_entreprise import (calculer_indicateurs, factures_vers_operations,
+                                lire_factures)
+from commun import formater, formater_court, solde_de_depart
+from vue_calendrier import afficher_calendrier
+
+VERT, ROUGE, ORANGE = "#1F7244", "#C0392B", "#E67E22"
+
+
+# ---------------------------------------------------------------------------
+# Barre laterale
+# ---------------------------------------------------------------------------
+
+def barre_laterale_entreprise() -> None:
+    """Les trois sources de donnees. Aucune n'est obligatoire."""
+    st.subheader("📥 Vos données")
+    st.caption("Chaque fichier ajoute des indicateurs. Aucun n'est obligatoire.")
+
+    for cle, etiquette, sens, aide in [
+        ("fc", "Factures **clients** (à encaisser)", "client",
+         "Ce que vos clients vous doivent. Donne le délai d'encaissement, "
+         "les impayés et la dépendance client."),
+        ("ff", "Factures **fournisseurs** (à payer)", "fournisseur",
+         "Ce que vous devez. Donne le délai de paiement et l'encours à régler."),
+    ]:
+        st.markdown(etiquette)
+        st.caption(aide)
+        fichier = st.file_uploader(etiquette, type=["csv", "xlsx", "xls", "xlsm"],
+                                   key=f"up_{cle}", label_visibility="collapsed")
+        if fichier is not None and st.button("Lire ce fichier", key=f"btn_{cle}",
+                                             use_container_width=True):
+            try:
+                lecture = lire_factures(fichier, fichier.name, sens=sens,
+                                        devise_defaut=st.session_state.devise)
+                st.session_state[f"lecture_{cle}"] = lecture
+                st.rerun()
+            except Exception as erreur:
+                st.error(str(erreur))
+
+        lecture = st.session_state.get(f"lecture_{cle}")
+        if lecture:
+            st.success(f"{len(lecture.factures)} factures · "
+                       f"{formater_court(lecture.total)}")
+            if st.button("Retirer", key=f"del_{cle}", use_container_width=True):
+                del st.session_state[f"lecture_{cle}"]
+                st.rerun()
+        st.divider()
+
+
+# ---------------------------------------------------------------------------
+# Petits blocs d'affichage
+# ---------------------------------------------------------------------------
+
+def _bloc(colonne, titre: str, valeur: str, note: str = "",
+          couleur: str = "#1F4E79") -> None:
+    colonne.markdown(
+        f"<div style='border:1px solid #e6e6e6;border-radius:10px;padding:12px 14px;"
+        f"height:100%'>"
+        f"<div style='font-size:11px;color:#777;text-transform:uppercase;"
+        f"letter-spacing:.4px'>{titre}</div>"
+        f"<div style='font-size:24px;font-weight:700;color:{couleur};"
+        f"margin:4px 0 2px'>{valeur}</div>"
+        f"<div style='font-size:11px;color:#888'>{note}</div></div>",
+        unsafe_allow_html=True)
+
+
+def _messages(ind) -> None:
+    for niveau, texte in ind.messages():
+        {"alerte": st.error, "attention": st.warning,
+         "bon": st.success}.get(niveau, st.info)(texte)
+
+
+# ---------------------------------------------------------------------------
+# Onglet 1 — Tableau de bord
+# ---------------------------------------------------------------------------
+
+def _tableau_de_bord(ind) -> None:
+    st.subheader("Ce que votre entreprise gagne et dépense, chaque mois")
+
+    a, b, c, d = st.columns(4)
+    _bloc(a, "Encaissé par mois", formater_court(ind.encaissements_par_mois),
+          "argent réellement reçu", VERT)
+    _bloc(b, "Décaissé par mois", formater_court(ind.decaissements_par_mois),
+          "argent réellement sorti", ROUGE)
+    resultat_ok = ind.resultat_par_mois >= 0
+    _bloc(c, "Résultat par mois", formater_court(ind.resultat_par_mois),
+          f"{ind.marge:.0f} % de vos encaissements",
+          VERT if resultat_ok else ROUGE)
+    _bloc(d, "Trésorerie", formater_court(ind.tresorerie),
+          "solde saisi dans le panneau de gauche")
+
+    st.write("")
+    e, f, g, h = st.columns(4)
+
+    if ind.runway_mois is not None:
+        couleur = (ROUGE if ind.runway_mois < 3
+                   else ORANGE if ind.runway_mois < 6 else VERT)
+        _bloc(e, "Autonomie (runway)", f"{ind.runway_mois:.1f} mois",
+              "avant épuisement de la trésorerie", couleur)
+    elif resultat_ok:
+        _bloc(e, "Autonomie (runway)", "Illimitée",
+              "votre activité s'autofinance", VERT)
+    else:
+        _bloc(e, "Autonomie (runway)", "—", "trésorerie non renseignée")
+
+    if ind.point_mort is not None:
+        atteint = ind.encaissements_par_mois >= ind.point_mort
+        _bloc(f, "Point d'équilibre", formater_court(ind.point_mort),
+              "atteint" if atteint else "non atteint",
+              VERT if atteint else ROUGE)
+    else:
+        _bloc(f, "Point d'équilibre", "—", "importez un relevé bancaire")
+
+    _bloc(g, "Charges fixes", formater_court(ind.charges_fixes),
+          f"{ind.part_fixe:.0f} % de vos charges",
+          ORANGE if ind.part_fixe > 70 else "#1F4E79")
+    _bloc(h, "Charges variables", formater_court(ind.charges_variables),
+          "sur lesquelles vous pouvez agir")
+
+    st.write("")
+    st.divider()
+    st.subheader("Ce que cela veut dire")
+    _messages(ind)
+
+    st.caption(f"Période analysée : du {ind.debut.strftime('%d/%m/%Y')} au "
+               f"{ind.fin.strftime('%d/%m/%Y')} — soit {ind.nb_mois:.1f} mois. "
+               f"Tous les montants sont ramenés au mois pour rester comparables.")
+
+
+# ---------------------------------------------------------------------------
+# Onglet 2 — Clients et fournisseurs
+# ---------------------------------------------------------------------------
+
+def _clients(ind, factures_clients, factures_fournisseurs) -> None:
+    if not factures_clients and not factures_fournisseurs:
+        st.info("Importez vos factures dans le panneau de gauche pour obtenir "
+                "vos délais de règlement, vos impayés et votre dépendance client.")
+        st.markdown("""
+**Le fichier attendu est un simple tableau.** Deux colonnes suffisent — une date
+et un montant. Les autres améliorent l'analyse :
+
+| Colonne | Rôle |
+|---|---|
+| Date de facture | obligatoire |
+| Montant | obligatoire |
+| Client / Fournisseur | dépendance et classement par tiers |
+| Échéance | détection des retards |
+| Date de paiement *(ou colonne Statut)* | délai réel de règlement |
+| Devise | analyse multidevise |
+
+Les intitulés sont reconnus en français comme en anglais : *Invoice date, Customer,
+Amount, Due date, Paid on, Status…*
+        """)
+        return
+
+    if factures_clients:
+        st.subheader("Vos clients")
+        a, b, c, d = st.columns(4)
+        _bloc(a, "Facturé", formater_court(ind.ca_facture), "sur la période")
+        _bloc(b, "Reste à encaisser", formater_court(ind.encours_client),
+              "factures non réglées",
+              ORANGE if ind.encours_client > 0 else VERT)
+        _bloc(c, "Dont en retard", formater_court(ind.retard_client),
+              "échéance dépassée",
+              ROUGE if ind.retard_client > 0 else VERT)
+        if ind.dso is not None:
+            _bloc(d, "Délai d'encaissement", f"{ind.dso:.0f} jours",
+                  "moyenne pondérée par les montants",
+                  ROUGE if ind.dso > 60 else VERT)
+        else:
+            _bloc(d, "Délai d'encaissement", "—", "aucun paiement daté")
+
+        st.write("")
+        g, h = st.columns([3, 2])
+
+        with g:
+            st.markdown("**Répartition de votre chiffre d'affaires**")
+            for c_ in ind.concentration[:8]:
+                l1, l2, l3 = st.columns([3, 1.4, 2])
+                l1.write(c_.tiers[:34])
+                l2.markdown(f"<div style='text-align:right'>"
+                            f"{formater_court(c_.montant)}</div>",
+                            unsafe_allow_html=True)
+                couleur = ROUGE if c_.part > 0.3 else "#888"
+                l3.markdown(f"<div style='color:{couleur};font-size:13px'>"
+                            f"{'█' * max(1, int(c_.part * 20))} {c_.part:.0%}</div>",
+                            unsafe_allow_html=True)
+
+        with h:
+            st.markdown("**Recouvrement**")
+            if ind.taux_recouvrement is not None:
+                st.progress(min(1.0, ind.taux_recouvrement / 100),
+                            text=f"{ind.taux_recouvrement:.0f} % de vos factures "
+                                 f"sont encaissées")
+            impayees = [f for f in factures_clients if not f.payee]
+            if impayees:
+                st.markdown("**Factures à relancer**")
+                retards = sorted(impayees, key=lambda f: -f.jours_de_retard())
+                st.dataframe(pd.DataFrame([{
+                    "Client": f.tiers[:26],
+                    "Montant": float(f.montant),
+                    "Retard (j)": f.jours_de_retard() or None,
+                } for f in retards[:15]]),
+                    use_container_width=True, hide_index=True)
+
+    if factures_fournisseurs:
+        st.divider()
+        st.subheader("Vos fournisseurs")
+        a, b, c = st.columns(3)
+        _bloc(a, "Facturé par vos fournisseurs",
+              formater_court(ind.achats_factures), "sur la période")
+        _bloc(b, "Reste à payer", formater_court(ind.encours_fournisseur),
+              "dettes non réglées", ORANGE)
+        if ind.dpo is not None:
+            _bloc(c, "Délai de paiement", f"{ind.dpo:.0f} jours",
+                  "moyenne pondérée par les montants")
+        else:
+            _bloc(c, "Délai de paiement", "—", "aucun paiement daté")
+
+    ecart = ind.ecart_de_financement
+    if ecart is not None:
+        st.write("")
+        st.markdown("**Qui finance qui**")
+        if ecart > 0:
+            st.warning(
+                f"Vous êtes payé en {ind.dso:.0f} jours et vous payez en "
+                f"{ind.dpo:.0f} jours. Pendant {ecart:.0f} jours, c'est votre "
+                f"trésorerie qui finance l'activité de vos clients.")
+        else:
+            st.success(
+                f"Vous êtes payé en {ind.dso:.0f} jours et vous payez en "
+                f"{ind.dpo:.0f} jours. Vos fournisseurs financent votre cycle "
+                f"d'exploitation sur {abs(ecart):.0f} jours.")
+
+
+# ---------------------------------------------------------------------------
+# Onglet 4 — Rapport
+# ---------------------------------------------------------------------------
+
+def _rapport(ind, syn) -> None:
+    st.subheader("Télécharger votre analyse")
+
+    titre = st.text_input("Titre du rapport", value="Analyse financière",
+                          key="titre_ent")
+    horodatage = date.today().strftime("%Y%m%d")
+
+    r1, r2, r3 = st.columns(3)
+    try:
+        from export_rapport import (exporter_entreprise_excel, exporter_pdf,
+                                    exporter_word)
+        with r1:
+            st.download_button(
+                "📊 Excel", key="x_ent",
+                data=exporter_entreprise_excel(
+                    ind, syn, st.session_state.get("mouvements"),
+                    devise=st.session_state.devise, titre=titre),
+                file_name=f"analyse_entreprise_{horodatage}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument."
+                     "spreadsheetml.sheet",
+                use_container_width=True, type="primary")
+            st.caption("Indicateurs, clients, opérations")
+        if syn is not None:
+            with r2:
+                st.download_button(
+                    "📄 PDF", key="p_ent",
+                    data=exporter_pdf(syn, devise=st.session_state.devise,
+                                      titre=titre),
+                    file_name=f"analyse_{horodatage}.pdf",
+                    mime="application/pdf", use_container_width=True)
+                st.caption("Une page, prêt à transmettre")
+            with r3:
+                st.download_button(
+                    "📝 Word", key="w_ent",
+                    data=exporter_word(syn, devise=st.session_state.devise,
+                                       titre=titre),
+                    file_name=f"analyse_{horodatage}.docx",
+                    mime="application/vnd.openxmlformats-officedocument."
+                         "wordprocessingml.document",
+                    use_container_width=True)
+                st.caption("Modifiable")
+        else:
+            r2.caption("Le PDF et le Word détaillés demandent un relevé bancaire.")
+    except Exception as err:
+        st.error(f"Export indisponible : {err}")
+        st.caption("Installez les dépendances :  "
+                   "py -m pip install openpyxl reportlab python-docx")
+
+
+# ---------------------------------------------------------------------------
+# Assemblage
+# ---------------------------------------------------------------------------
+
+def afficher_entreprise() -> None:
+    lecture_fc = st.session_state.get("lecture_fc")
+    lecture_ff = st.session_state.get("lecture_ff")
+    factures_clients = lecture_fc.factures if lecture_fc else []
+    factures_fournisseurs = lecture_ff.factures if lecture_ff else []
+    mouvements = st.session_state.get("mouvements") or []
+
+    if not mouvements and not factures_clients and not factures_fournisseurs:
+        st.info("**Trois fichiers possibles, aucun obligatoire.** "
+                "Commencez par ce que vous avez sous la main.")
+        a, b, c = st.columns(3)
+        a.markdown("#### 🏦 Relevé bancaire\nCe qui est réellement entré et sorti.\n\n"
+                   "→ résultat, charges fixes, point d'équilibre, autonomie")
+        b.markdown("#### 🧾 Factures clients\nCe qu'on vous doit.\n\n"
+                   "→ délai d'encaissement, impayés, dépendance client")
+        c.markdown("#### 📥 Factures fournisseurs\nCe que vous devez.\n\n"
+                   "→ délai de paiement, encours à régler")
+        st.divider()
+        st.caption("Formats acceptés : PDF, CSV, Excel. Les colonnes sont "
+                   "reconnues automatiquement, en français comme en anglais.")
+        return
+
+    ind = calculer_indicateurs(
+        mouvements=mouvements,
+        factures_clients=factures_clients,
+        factures_fournisseurs=factures_fournisseurs,
+        tresorerie=solde_de_depart())
+
+    syn = None
+    if mouvements:
+        try:
+            from analyse_lisible import analyser_lisible
+            syn = analyser_lisible(mouvements)
+        except Exception:
+            syn = None
+
+    o1, o2, o3, o5, o4 = st.tabs(
+        ["📈 Tableau de bord", "👥 Clients & fournisseurs",
+         "📅 Trésorerie prévisionnelle", "🔮 Scénarios", "📄 Rapport"])
+
+    with o5:
+        from vue_scenarios import afficher_scenarios
+        afficher_scenarios("Entreprise")
+
+    with o1:
+        _tableau_de_bord(ind)
+
+    with o2:
+        _clients(ind, factures_clients, factures_fournisseurs)
+
+    with o3:
+        attendues = factures_vers_operations(factures_clients + factures_fournisseurs)
+        if attendues:
+            deja = {(o["libelle"], o["date"]) for o in st.session_state.operations}
+            nouvelles = [o for o in attendues if (o["libelle"], o["date"]) not in deja]
+            if nouvelles:
+                st.info(f"**{len(nouvelles)} factures non réglées** peuvent être "
+                        f"placées dans le calendrier à leur date d'échéance.")
+                if st.button("Placer ces factures dans le calendrier",
+                             type="primary", key="injecter"):
+                    st.session_state.operations.extend(nouvelles)
+                    st.rerun()
+                st.caption("Les factures déjà en retard sont reportées au lendemain "
+                           "et marquées incertaines : l'argent est attendu, "
+                           "pas promis.")
+                st.divider()
+
+        if st.session_state.operations:
+            afficher_calendrier(cle="ent", mots={
+                "solde_actuel": "Trésorerie aujourd'hui",
+                "point_bas": "Trésorerie au plus bas",
+                "incertain": "Inclure les encaissements incertains",
+                "aide_incertain": "Factures en retard, devis, commandes non fermes",
+            })
+        else:
+            st.info("Aucune opération à projeter. Placez vos factures ci-dessus, "
+                    "ou ajoutez vos échéances dans le panneau de gauche.")
+
+    with o4:
+        _rapport(ind, syn)

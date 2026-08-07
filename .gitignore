@@ -1,0 +1,38 @@
+# Secrets — ne doivent JAMAIS être publiés
+.streamlit/secrets.toml
+.env
+*.key
+*.pem
+
+# Données financières — celles de l'utilisateur ne nous appartiennent pas
+dayzon_donnees.json
+*_illisible_*.json
+*.csv
+*.xlsx
+*.xls
+*.pdf
+!exemples/*.csv
+
+# Documents internes — stratégie, prix, positionnement
+MEMO_*.md
+CADRAGE_*.md
+POSITIONNEMENT.md
+REPONSE_PHASE_*.md
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.pytest_cache/
+
+# Systèmes
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Éditeurs
+.vscode/
+.idea/
+*.swp
