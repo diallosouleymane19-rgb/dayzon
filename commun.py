@@ -410,24 +410,50 @@ def tp(cle_singulier: str, cle_pluriel: str, nombre: int, **variables) -> str:
     return lg.pluriel(cle_singulier, cle_pluriel, nombre, langue(), **variables)
 
 
+def _langue_choisie() -> None:
+    """
+    Appelée par Streamlit au moment où l'utilisateur change le menu,
+    avant le réaffichage. C'est ce qui permet de distinguer un changement
+    venu de lui d'un changement venu du code.
+    """
+    st.session_state.langue = st.session_state._widget_langue
+    try:
+        enregistrer()
+    except Exception:
+        # Changer de langue ne doit jamais faire tomber l'application.
+        # Si l'enregistrement échoue, la langue change quand même et
+        # la prochaine modification des données le rattrapera.
+        st.session_state.modifications_en_attente = True
+
+
 def selecteur_langue() -> None:
     """
     Le choix de langue, en haut du panneau de gauche.
 
-    Le widget porte directement la clé `langue` de l'état de session, et
-    non une clé séparée. Avec deux clés distinctes, le widget réécrit sa
-    valeur mémorisée à chaque affichage : charger une sauvegarde en anglais
-    repasserait aussitôt en français, sans que rien ne le signale.
+    Deux clés, et deux sens de circulation à ne pas confondre :
+
+      · l'UTILISATEUR change le menu → `_langue_choisie` recopie son choix
+        dans `langue`, au moment même du clic ;
+      · le CODE change `langue` — chargement d'un compte, import d'un
+        fichier — → on réaligne le menu avant de le réafficher.
+
+    Deux tentatives ont échoué avant celle-ci, et chacune cassait un sens :
+    un menu avec sa propre clé écrasait la langue chargée d'un compte ;
+    un menu lié directement à `langue` rendait cette clé inmodifiable par
+    le code, et recharger un compte levait une erreur.
     """
     langue()                                # pose la langue si elle manque
-    avant = st.session_state.langue
+
+    # Réalignement : uniquement quand le code a modifié la langue ailleurs.
+    # Le choix de l'utilisateur, lui, est déjà passé par `_langue_choisie`,
+    # donc les deux valeurs sont alors identiques et rien ne bouge.
+    if st.session_state.get("_widget_langue") != st.session_state.langue:
+        st.session_state._widget_langue = st.session_state.langue
 
     st.selectbox(
-        lg.traduire("gen.langue", avant), lg.LANGUES_DISPONIBLES,
+        lg.traduire("gen.langue", st.session_state.langue),
+        lg.LANGUES_DISPONIBLES,
         format_func=lambda c: f"{lg.LOCALES[c].drapeau}  {lg.LOCALES[c].nom_natif}",
         label_visibility="collapsed",
-        key="langue")
-
-    if st.session_state.langue != avant:
-        enregistrer()
-        st.rerun()
+        key="_widget_langue",
+        on_change=_langue_choisie)

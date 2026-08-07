@@ -230,6 +230,74 @@ for code in ["en", "es", "zh"]:
     verifier(f"{code} : aucun texte laisse en français", identiques, [])
 
 
+
+
+# ---------------------------------------------------------------------------
+print("\n9. Le selecteur de langue, dans les deux sens")
+# ---------------------------------------------------------------------------
+# Ces verifications protegent deux pannes reelles, survenues coup sur coup :
+#   · widget avec sa propre cle  -> il ecrasait la langue chargee d'un compte
+#   · widget lie a la cle langue -> le code ne pouvait plus la changer du tout
+# Il faut que les DEUX sens fonctionnent.
+
+import os
+import shutil
+import tempfile
+from pathlib import Path
+
+from streamlit.testing.v1 import AppTest
+
+_BAC = Path(tempfile.mkdtemp(prefix="dz_lang_"))
+import sauvegarde as _sv
+_sv.chemin_par_defaut = lambda: _BAC / "t.json"
+
+# Le script d'essai doit vivre a cote des modules, sinon `import commun`
+# echoue et le test passerait a cote de ce qu'il pretend verifier.
+_SCRIPT = Path("_ecran_essai_langue.py").resolve()
+_SCRIPT.write_text(
+    "import streamlit as st\n"
+    "import commun, sauvegarde as sv\n"
+    "commun.initialiser()\n"
+    "with st.sidebar:\n"
+    "    commun.selecteur_langue()\n"
+    "if '_forcer' in st.session_state:\n"
+    "    commun._appliquer(sv.Donnees(langue=st.session_state['_forcer'],\n"
+    "                                 profil='Particulier'))\n"
+    "st.write('langue=' + st.session_state['langue'])\n",
+    encoding="utf-8")
+
+
+def _langue_affichee(at) -> str:
+    """Lit la langue telle que l'ecran l'affiche vraiment."""
+    for element in at.markdown:
+        if element.value.startswith("langue="):
+            return element.value.split("=", 1)[1]
+    return "?"
+
+
+try:
+    # Sens 1 : le CODE change la langue — chargement d'un compte, import.
+    at = AppTest.from_file(str(_SCRIPT), default_timeout=60)
+    at.run()
+    at.session_state["_forcer"] = "en"
+    at.run()
+    verifier("le code peut changer la langue sans erreur",
+             at.exception is None or len(at.exception) == 0, True)
+    verifier("... et le changement atteint l'ecran", _langue_affichee(at), "en")
+
+    # Sens 2 : l'UTILISATEUR change la langue dans le menu.
+    at2 = AppTest.from_file(str(_SCRIPT), default_timeout=60)
+    at2.run()
+    verifier("le menu de langue est present", len(at2.selectbox) >= 1, True)
+    if at2.selectbox:
+        at2.selectbox[0].select("es").run()
+        verifier("le choix de l'utilisateur est pris en compte",
+                 _langue_affichee(at2), "es")
+finally:
+    _SCRIPT.unlink(missing_ok=True)
+    shutil.rmtree(_BAC, ignore_errors=True)
+
+
 print("\n" + "=" * 62)
 if ko:
     print(f"{ok} verifications reussies, {len(ko)} ECHECS :")
