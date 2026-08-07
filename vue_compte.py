@@ -62,6 +62,24 @@ def _connecte() -> None:
         st.rerun()
 
 
+def _enregistrer() -> None:
+    """
+    Force une écriture immédiate.
+
+    L'enregistrement est automatique après chaque modification ; ce bouton
+    ne sert qu'à rassurer, ou à réessayer après un échec réseau.
+    """
+    try:
+        if commun.enregistrer(force=True):
+            st.success("Enregistré dans votre compte.")
+        else:
+            st.warning("Rien à enregistrer.")
+    except compte.ErreurCompte as err:
+        st.error(str(err))
+    except sv.ErreurSauvegarde as err:
+        st.error(str(err))
+
+
 def _deconnecte() -> None:
     with st.expander("👤 Se connecter / créer un compte", expanded=False):
         st.caption("Un compte permet de retrouver vos données à chaque visite, "
