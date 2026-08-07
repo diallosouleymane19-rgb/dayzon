@@ -19,6 +19,7 @@ import streamlit as st
 import commun
 from commun import DEVISES_PROPOSEES, LIBELLES_RECURRENCE, formater, symbole
 from moteur_tresorerie import Recurrence
+from vue_compte import bandeau_essai, panneau_compte
 from vue_comptes import panneau_comptes, panneau_sauvegarde, panneau_taux
 
 st.set_page_config(page_title="Dayzon — Gestion financière",
@@ -40,6 +41,9 @@ commun.initialiser()
 with st.sidebar:
     st.title("Dayzon")
     st.caption("Votre solde, n'importe quel jour à venir.")
+
+    panneau_compte()
+    st.divider()
 
     st.session_state.profil = st.radio(
         "Vous utilisez cet outil pour", ["Particulier", "Entreprise"],
@@ -150,6 +154,8 @@ with st.sidebar:
 # ---------------------------------------------------------------------------
 
 st.title("Gestion financière — " + ("Entreprise" if entreprise else "Particulier"))
+
+bandeau_essai()
 
 if "analyse" in st.session_state:
     a = st.session_state.analyse
