@@ -40,20 +40,22 @@ commun.initialiser()
 
 with st.sidebar:
     st.title("Dayzon")
-    st.caption("Votre solde, n'importe quel jour à venir.")
+    commun.selecteur_langue()
+    st.caption(commun.t("app.signature"))
 
     panneau_compte()
     st.divider()
 
+    _PROFILS = ["Particulier", "Entreprise"]
     st.session_state.profil = st.radio(
-        "Vous utilisez cet outil pour", ["Particulier", "Entreprise"],
-        horizontal=True,
-        index=["Particulier", "Entreprise"].index(st.session_state.profil))
+        commun.t("app.profil_question"), _PROFILS, horizontal=True,
+        index=_PROFILS.index(st.session_state.profil),
+        format_func=lambda p: commun.t(
+            "app.entreprise" if p == "Entreprise" else "app.particulier"))
 
     entreprise = st.session_state.profil == "Entreprise"
-    st.caption("Votre trésorerie, vos clients et vos indicateurs."
-               if entreprise else
-               "Votre budget, vos dépenses et votre solde à venir.")
+    st.caption(commun.t("app.sous_titre_ent" if entreprise
+                        else "app.sous_titre_part"))
 
     st.divider()
     panneau_comptes(entreprise)
@@ -153,7 +155,8 @@ with st.sidebar:
 # Corps — validation d'un import, commune aux deux profils
 # ---------------------------------------------------------------------------
 
-st.title("Gestion financière — " + ("Entreprise" if entreprise else "Particulier"))
+st.title(commun.t("app.titre_page") + " — " +
+         commun.t("app.entreprise" if entreprise else "app.particulier"))
 
 bandeau_essai()
 
@@ -400,5 +403,5 @@ else:
             } for p in syn.postes]), use_container_width=True, hide_index=True)
 
 
-st.caption("Dayzon — SMD Global Consulting LLC · "
-           "Analyse financière indicative, à valider avant toute décision.")
+st.caption("Dayzon — SMD Global Consulting LLC · " +
+           commun.t("gen.avertissement"))

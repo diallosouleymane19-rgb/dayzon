@@ -165,6 +165,7 @@ class Donnees:
     """Ce que l'application conserve d'une session à l'autre."""
     profil: str = "Particulier"
     devise_reference: str = "EUR"
+    langue: str = "fr"
     comptes: list[dict] = None
     operations: list[dict] = None
     taux: list[dict] = None
@@ -224,6 +225,7 @@ def enregistrer(donnees: Donnees, chemin: Path | str | None = None) -> Path:
         "enregistre_le": donnees.enregistre_le.isoformat(),
         "profil": donnees.profil,
         "devise_reference": donnees.devise_reference,
+        "langue": donnees.langue,
         "comptes": donnees.comptes,
         "operations": donnees.operations,
         "taux": donnees.taux,
@@ -308,6 +310,7 @@ def charger(chemin: Path | str | None = None) -> Donnees | None:
     return Donnees(
         profil=brut.get("profil", "Particulier"),
         devise_reference=brut.get("devise_reference", "EUR"),
+        langue=brut.get("langue", "fr"),
         comptes=brut.get("comptes") or [],
         operations=brut.get("operations") or [],
         taux=brut.get("taux") or [],
@@ -411,6 +414,7 @@ def vers_octets(donnees: Donnees) -> bytes:
         "enregistre_le": donnees.enregistre_le.isoformat(),
         "profil": donnees.profil,
         "devise_reference": donnees.devise_reference,
+        "langue": donnees.langue,
         "comptes": donnees.comptes,
         "operations": donnees.operations,
         "taux": donnees.taux,
@@ -463,6 +467,7 @@ def depuis_octets(donnees_brutes: bytes) -> Donnees:
     return Donnees(
         profil=brut.get("profil", "Particulier"),
         devise_reference=brut.get("devise_reference", "EUR"),
+        langue=brut.get("langue", "fr"),
         comptes=brut.get("comptes") or [],
         operations=brut.get("operations") or [],
         taux=brut.get("taux") or [],

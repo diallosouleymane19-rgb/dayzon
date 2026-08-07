@@ -18,6 +18,7 @@ from decimal import Decimal
 import streamlit as st
 
 import argent
+import langues as lg
 import sauvegarde as sv
 from argent import (Conversion, ErreurArgent, Montant, TableTaux, Taux,
                     nom_devise, table_par_defaut, valider_devise)
@@ -95,6 +96,8 @@ def _appliquer(donnees: sv.Donnees) -> None:
     """Recharge une sauvegarde dans la session."""
     st.session_state.profil = donnees.profil or "Particulier"
     st.session_state.devise = donnees.devise_reference or "EUR"
+    if getattr(donnees, "langue", None):
+        st.session_state.langue = donnees.langue
     st.session_state.portefeuille = Portefeuille.depuis_liste(
         donnees.comptes, donnees.devise_reference or "EUR")
 
@@ -241,17 +244,32 @@ def symbole(devise: str | None = None) -> str:
 
 
 def formater(montant, devise: str | None = None) -> str:
-    """1 234,56 € — accepte un Montant, un Decimal, un float ou un int."""
+    """
+    Un montant écrit selon la langue de lecture.
+
+    « 1 234,56 € » en français, « $1,234.56 » en anglais : ce n'est pas
+    une coquetterie, c'est ce qui évite qu'un lecteur espagnol comprenne
+    mille là où un anglophone lit un.
+    """
     if isinstance(montant, Montant):
-        return montant.formater()
-    return Montant.de(montant, devise or devise_reference()).formater()
+        return lg.formater_montant(montant.valeur, montant.devise, langue())
+    d = devise or devise_reference()
+    return lg.formater_montant(Montant.de(montant, d).valeur, d, langue())
 
 
 def formater_court(montant, devise: str | None = None) -> str:
     """Sans les centimes, pour les indicateurs où ils n'apportent rien."""
     if isinstance(montant, Montant):
-        return montant.formater(avec_decimales=False)
-    return Montant.de(montant, devise or devise_reference()).formater(False)
+        return lg.formater_montant(montant.valeur, montant.devise, langue(),
+                                   avec_decimales=False)
+    d = devise or devise_reference()
+    return lg.formater_montant(Montant.de(montant, d).valeur, d, langue(),
+                               avec_decimales=False)
+
+
+def formater_date(jour) -> str:
+    """Une date écrite selon la langue de lecture."""
+    return lg.formater_date(jour, langue())
 
 
 # ---------------------------------------------------------------------------
@@ -340,6 +358,7 @@ def donnees_courantes() -> sv.Donnees:
     return sv.Donnees(
         profil=st.session_state.get("profil", "Particulier"),
         devise_reference=devise_reference(),
+        langue=st.session_state.get("langue", "fr"),
         comptes=portefeuille().vers_liste(),
         operations=_operations_serialisables(),
         taux=[{"base": t.base, "contre": t.contre, "valeur": str(t.valeur),
@@ -358,3 +377,57 @@ def importer_octets(donnees_brutes: bytes) -> sv.Donnees:
     donnees = sv.depuis_octets(donnees_brutes)
     _appliquer(donnees)
     return donnees
+
+
+# ---------------------------------------------------------------------------
+# Langue
+# ---------------------------------------------------------------------------
+
+def langue() -> str:
+    """La langue choisie, ou celle du navigateur au premier passage."""
+    if "langue" not in st.session_state:
+        entete = None
+        try:
+            entete = st.context.headers.get("Accept-Language")
+        except Exception:
+            pass
+        st.session_state.langue = lg.detecter(entete)
+    return st.session_state.langue
+
+
+def t(cle: str, **variables) -> str:
+    """
+    Raccourci de traduction, volontairement court.
+
+    Il apparaîtra des centaines de fois dans les écrans : un nom long
+    rendrait le code illisible.
+    """
+    return lg.traduire(cle, langue(), **variables)
+
+
+def tp(cle_singulier: str, cle_pluriel: str, nombre: int, **variables) -> str:
+    """Traduction avec accord en nombre."""
+    return lg.pluriel(cle_singulier, cle_pluriel, nombre, langue(), **variables)
+
+
+def selecteur_langue() -> None:
+    """
+    Le choix de langue, en haut du panneau de gauche.
+
+    Le widget porte directement la clé `langue` de l'état de session, et
+    non une clé séparée. Avec deux clés distinctes, le widget réécrit sa
+    valeur mémorisée à chaque affichage : charger une sauvegarde en anglais
+    repasserait aussitôt en français, sans que rien ne le signale.
+    """
+    langue()                                # pose la langue si elle manque
+    avant = st.session_state.langue
+
+    st.selectbox(
+        lg.traduire("gen.langue", avant), lg.LANGUES_DISPONIBLES,
+        format_func=lambda c: f"{lg.LOCALES[c].drapeau}  {lg.LOCALES[c].nom_natif}",
+        label_visibility="collapsed",
+        key="langue")
+
+    if st.session_state.langue != avant:
+        enregistrer()
+        st.rerun()
