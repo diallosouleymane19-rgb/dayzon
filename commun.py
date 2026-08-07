@@ -153,40 +153,73 @@ def _operations_serialisables() -> list[dict]:
 
 def enregistrer(force: bool = False) -> bool:
     """
-    Écrit la sauvegarde. Renvoie True si l'écriture a eu lieu.
+    Enregistre l'état courant, là où il doit aller.
 
-    Silencieuse en cas d'échec quand elle est automatique : afficher une
-    erreur technique à chaque frappe rendrait l'application inutilisable.
-    L'échec reste visible dans l'écran des réglages.
+    Trois situations, et l'utilisateur n'a jamais à choisir :
+
+      · connecté        → en base, sur son compte, depuis n'importe quel appareil ;
+      · local sans compte → dans un fichier sur son ordinateur ;
+      · en ligne sans compte → nulle part, et l'écran le dit franchement.
+
+    Appelée après chaque modification. Personne ne devrait avoir à penser
+    à cliquer sur « Enregistrer » : on l'oublie exactement le jour où ça
+    compte.
     """
+    # --- Connecté : la base fait autorité -------------------------------
+    try:
+        import compte
+        if compte.connecte():
+            return _enregistrer_en_base(force)
+    except ImportError:
+        pass
+
+    # --- En ligne sans compte : rien à enregistrer -----------------------
     if not sv.mode_local():
-        # Rien à faire : en ligne, les données ne quittent pas la session.
-        # L'utilisateur les emporte par « Télécharger mes données ».
         return False
 
+    # --- Local : fichier sur le poste -----------------------------------
     if not force and not st.session_state.get("sauvegarde_auto", True):
         return False
 
-    table = taux()
-    donnees = sv.Donnees(
-        profil=st.session_state.get("profil", "Particulier"),
-        devise_reference=devise_reference(),
-        comptes=portefeuille().vers_liste(),
-        operations=_operations_serialisables(),
-        taux=[{"base": t.base, "contre": t.contre, "valeur": str(t.valeur),
-               "observe_le": t.observe_le.isoformat(), "source": t.source}
-              for t in _taux_uniques(table)],
-    )
+    donnees = donnees_courantes()
     try:
         sv.enregistrer(donnees)
         st.session_state.derniere_sauvegarde = donnees.enregistre_le
         st.session_state.erreur_sauvegarde = None
+        st.session_state.modifications_en_attente = False
         return True
     except sv.ErreurSauvegarde as err:
         st.session_state.erreur_sauvegarde = str(err)
         if force:
             raise
         return False
+
+
+def _enregistrer_en_base(force: bool = False) -> bool:
+    """Écrit dans le compte de l'utilisateur connecté."""
+    import compte
+    from datetime import datetime
+
+    donnees = donnees_courantes()
+    try:
+        compte.enregistrer_espace(
+            profil=donnees.profil,
+            devise_reference=donnees.devise_reference,
+            comptes=donnees.comptes,
+            operations=donnees.operations,
+            taux=donnees.taux)
+    except compte.ErreurCompte as err:
+        st.session_state.erreur_sauvegarde = str(err)
+        st.session_state.modifications_en_attente = True
+        if force:
+            raise
+        return False
+
+    st.session_state.dernier_enregistrement_base = \
+        datetime.now().strftime("%H:%M")
+    st.session_state.erreur_sauvegarde = None
+    st.session_state.modifications_en_attente = False
+    return True
 
 
 def _taux_uniques(table: TableTaux) -> list[Taux]:

@@ -38,35 +38,28 @@ def _connecte() -> None:
     s = compte.session()
     st.caption(f"Connecté · **{s.email}**")
 
+    # L'écran doit dire la vérité sur l'état, pas afficher un « Enregistré »
+    # rassurant alors que des modifications attendent.
+    if st.session_state.get("erreur_sauvegarde"):
+        st.error(f"⚠️ Non enregistré : {st.session_state.erreur_sauvegarde}")
+    elif st.session_state.get("modifications_en_attente"):
+        st.warning("Modifications non enregistrées.")
+    else:
+        dernier = st.session_state.get("dernier_enregistrement_base")
+        if dernier:
+            st.caption(f"✓ Enregistré à {dernier}")
+        else:
+            st.caption("Vos données sont enregistrées automatiquement.")
+
     c1, c2 = st.columns(2)
     if c1.button("Enregistrer", use_container_width=True,
-                 help="Envoie vos données vers votre compte."):
+                 help="L'enregistrement est automatique ; ce bouton force "
+                      "une écriture immédiate."):
         _enregistrer()
 
     if c2.button("Déconnexion", use_container_width=True):
         compte.deconnecter()
         st.rerun()
-
-    dernier = st.session_state.get("dernier_enregistrement_base")
-    if dernier:
-        st.caption(f"Enregistré à {dernier}")
-
-
-def _enregistrer() -> None:
-    try:
-        donnees = commun.donnees_courantes()
-        compte.enregistrer_espace(
-            profil=donnees.profil,
-            devise_reference=donnees.devise_reference,
-            comptes=donnees.comptes,
-            operations=donnees.operations,
-            taux=donnees.taux)
-        from datetime import datetime
-        st.session_state.dernier_enregistrement_base = \
-            datetime.now().strftime("%H:%M")
-        st.success("Enregistré dans votre compte.")
-    except compte.ErreurCompte as err:
-        st.error(str(err))
 
 
 def _deconnecte() -> None:

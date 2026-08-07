@@ -16,6 +16,7 @@ import streamlit as st
 
 from analyse_entreprise import (calculer_indicateurs, factures_vers_operations,
                                 lire_factures)
+import commun
 from commun import formater, formater_court, solde_de_depart
 from vue_calendrier import afficher_calendrier
 
@@ -366,6 +367,7 @@ def afficher_entreprise() -> None:
                 if st.button("Placer ces factures dans le calendrier",
                              type="primary", key="injecter"):
                     st.session_state.operations.extend(nouvelles)
+                    commun.enregistrer()
                     st.rerun()
                 st.caption("Les factures déjà en retard sont reportées au lendemain "
                            "et marquées incertaines : l'argent est attendu, "
