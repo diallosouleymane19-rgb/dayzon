@@ -36,28 +36,28 @@ def panneau_compte() -> None:
 
 def _connecte() -> None:
     s = compte.session()
-    st.caption(f"Connecté · **{s.email}**")
+    st.caption(commun.t("cpt.connecte", email=s.email))
 
     # L'écran doit dire la vérité sur l'état, pas afficher un « Enregistré »
     # rassurant alors que des modifications attendent.
     if st.session_state.get("erreur_sauvegarde"):
-        st.error(f"⚠️ Non enregistré : {st.session_state.erreur_sauvegarde}")
+        st.error(commun.t("cpt.non_enregistre",
+                          erreur=st.session_state.erreur_sauvegarde))
     elif st.session_state.get("modifications_en_attente"):
-        st.warning("Modifications non enregistrées.")
+        st.warning(commun.t("cpt.en_attente"))
     else:
         dernier = st.session_state.get("dernier_enregistrement_base")
         if dernier:
-            st.caption(f"✓ Enregistré à {dernier}")
+            st.caption(commun.t("cpt.enregistre_a", heure=dernier))
         else:
-            st.caption("Vos données sont enregistrées automatiquement.")
+            st.caption(commun.t("cpt.auto"))
 
     c1, c2 = st.columns(2)
-    if c1.button("Enregistrer", use_container_width=True,
-                 help="L'enregistrement est automatique ; ce bouton force "
-                      "une écriture immédiate."):
+    if c1.button(commun.t("cpt.enregistrer"), use_container_width=True,
+                 help=commun.t("cpt.aide_enr")):
         _enregistrer()
 
-    if c2.button("Déconnexion", use_container_width=True):
+    if c2.button(commun.t("cpt.deconnexion"), use_container_width=True):
         compte.deconnecter()
         st.rerun()
 
@@ -71,9 +71,9 @@ def _enregistrer() -> None:
     """
     try:
         if commun.enregistrer(force=True):
-            st.success("Enregistré dans votre compte.")
+            st.success(commun.t("cpt.enr_ok"))
         else:
-            st.warning("Rien à enregistrer.")
+            st.warning(commun.t("cpt.rien"))
     except compte.ErreurCompte as err:
         st.error(str(err))
     except sv.ErreurSauvegarde as err:
@@ -81,19 +81,19 @@ def _enregistrer() -> None:
 
 
 def _deconnecte() -> None:
-    with st.expander("👤 Se connecter / créer un compte", expanded=False):
-        st.caption("Un compte permet de retrouver vos données à chaque visite, "
-                   "sur n'importe quel appareil. Sans compte, l'application "
-                   "fonctionne aussi — mais tout disparaît en fermant l'onglet.")
+    with st.expander(commun.t("cpt.se_connecter"), expanded=False):
+        st.caption(commun.t("cpt.pourquoi"))
 
         onglet_connexion, onglet_creation, onglet_oubli = st.tabs(
-            ["Connexion", "Créer un compte", "Mot de passe oublié"])
+            [commun.t("cpt.onglet_cx"), commun.t("cpt.onglet_cr"),
+             commun.t("cpt.onglet_ob")])
 
         with onglet_connexion:
             with st.form("connexion"):
-                email = st.text_input("Adresse e-mail", key="cx_email")
-                mot = st.text_input("Mot de passe", type="password", key="cx_mot")
-                if st.form_submit_button("Se connecter", type="primary",
+                email = st.text_input(commun.t("cpt.email"), key="cx_email")
+                mot = st.text_input(commun.t("cpt.mot"), type="password",
+                                    key="cx_mot")
+                if st.form_submit_button(commun.t("cpt.bouton_cx"), type="primary",
                                          use_container_width=True):
                     try:
                         compte.connecter(email, mot)
@@ -104,12 +104,11 @@ def _deconnecte() -> None:
 
         with onglet_creation:
             with st.form("creation"):
-                email = st.text_input("Adresse e-mail", key="cr_email")
-                mot = st.text_input("Mot de passe", type="password", key="cr_mot",
-                                    help="Au moins 8 caractères.")
-                st.caption("Vos données financières restent les vôtres. "
-                           "Nous ne les consultons pas et ne les revendons pas.")
-                if st.form_submit_button("Créer mon compte", type="primary",
+                email = st.text_input(commun.t("cpt.email"), key="cr_email")
+                mot = st.text_input(commun.t("cpt.mot"), type="password",
+                                    key="cr_mot", help=commun.t("cpt.aide_mot"))
+                st.caption(commun.t("cpt.confidentiel"))
+                if st.form_submit_button(commun.t("cpt.bouton_cr"), type="primary",
                                          use_container_width=True):
                     try:
                         message = compte.inscrire(email, mot)
@@ -123,8 +122,8 @@ def _deconnecte() -> None:
 
         with onglet_oubli:
             with st.form("oubli"):
-                email = st.text_input("Adresse de votre compte", key="ob_email")
-                if st.form_submit_button("Recevoir un lien",
+                email = st.text_input(commun.t("cpt.email_compte"), key="ob_email")
+                if st.form_submit_button(commun.t("cpt.lien"),
                                          use_container_width=True):
                     try:
                         st.info(compte.reinitialiser_mot_de_passe(email))
@@ -145,7 +144,7 @@ def _recharger_depuis_base() -> None:
     try:
         donnees = compte.charger_espace()
     except compte.ErreurCompte as err:
-        st.warning(f"Connexion réussie, mais lecture impossible : {err}")
+        st.warning(commun.t("cpt.lecture_ko", erreur=err))
         return
 
     depuis_base = sv.Donnees(
@@ -159,15 +158,13 @@ def _recharger_depuis_base() -> None:
         # Compte neuf et travail en cours : on garde ce qui est à l'écran
         # plutôt que de l'effacer au nom d'un compte vide.
         st.session_state.message_demarrage = (
-            "info", "Votre compte est vide. Vos données actuelles ont été "
-                    "conservées — utilisez « Enregistrer » pour les y placer.")
+            "info", commun.t("cpt.compte_vide"))
         return
 
     commun._appliquer(depuis_base)
     if not depuis_base.vide:
         st.session_state.message_demarrage = (
-            "info", f"Données rechargées depuis votre compte : "
-                    f"{depuis_base.resume()}.")
+            "info", commun.t("cpt.rechargees", resume=depuis_base.resume()))
 
 
 # ---------------------------------------------------------------------------
@@ -192,6 +189,4 @@ def bandeau_essai() -> None:
         return
 
     st.session_state._bandeau_essai_vu = True
-    st.info("**Vos données disparaîtront en fermant cet onglet.** "
-            "Créez un compte dans le panneau de gauche pour les retrouver "
-            "à chaque visite, ou téléchargez votre fichier.")
+    st.info(commun.t("cpt.bandeau"))

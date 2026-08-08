@@ -95,8 +95,17 @@ verifier("un enregistrement en echec est signale",
          "erreur_sauvegarde" in vue)
 verifier("des modifications en attente sont signalees",
          "modifications_en_attente" in vue)
+# Les textes sont passes dans les fichiers de traduction : le test suit la
+# cle, et verifie separement que la cle porte bien un message de succes.
 verifier("le mot « Enregistré » n'apparait qu'en cas de succes",
-         vue.index("modifications_en_attente") < vue.index("Enregistré à"))
+         vue.index("modifications_en_attente") < vue.index("cpt.enregistre_a"))
+
+import json
+_fr = json.loads(Path("traductions/fr.json").read_text(encoding="utf-8"))
+verifier("la cle de succes annonce bien un enregistrement",
+         "Enregistré" in _fr["cpt.enregistre_a"])
+verifier("la cle d'attente annonce bien un defaut d'enregistrement",
+         "non enregistr" in _fr["cpt.en_attente"].lower())
 
 commun = Path("commun.py").read_text(encoding="utf-8")
 verifier("l'etat est remis a zero apres un enregistrement reussi",

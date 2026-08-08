@@ -34,6 +34,21 @@ MOIS_FR = {1: "Janvier", 2: "Février", 3: "Mars", 4: "Avril",
            5: "Mai", 6: "Juin", 7: "Juillet", 8: "Août",
            9: "Septembre", 10: "Octobre", 11: "Novembre", 12: "Décembre"}
 
+# La clé est stable et jamais affichée : ce que l'utilisateur lit passe par
+# la traduction. Une application multilingue ne peut pas dépendre d'un
+# libellé français pour retrouver une valeur — changer la langue casserait
+# la lecture des données enregistrées.
+RECURRENCES = {
+    "ponctuelle":   Recurrence.PONCTUELLE,
+    "hebdo":        Recurrence.HEBDOMADAIRE,
+    "bimensuelle":  Recurrence.BIMENSUELLE,
+    "mensuelle":    Recurrence.MENSUELLE,
+    "trimestrielle": Recurrence.TRIMESTRIELLE,
+    "annuelle":     Recurrence.ANNUELLE,
+}
+
+# Conservé pour compatibilité : d'anciennes sauvegardes portent le libellé
+# français en clair.
 LIBELLES_RECURRENCE = {
     "Une seule fois":        Recurrence.PONCTUELLE,
     "Chaque semaine":        Recurrence.HEBDOMADAIRE,
@@ -270,6 +285,40 @@ def formater_court(montant, devise: str | None = None) -> str:
 def formater_date(jour) -> str:
     """Une date écrite selon la langue de lecture."""
     return lg.formater_date(jour, langue())
+
+
+def date_longue(jour) -> str:
+    """Date complète : 07/08/2026, 07 Aug 2026, 2026年08月07日."""
+    return lg.formater_date(jour, langue())
+
+
+def date_courte(jour) -> str:
+    """
+    Date sans l'année, pour les indicateurs où la place manque.
+
+    Le jour et le mois ne s'ordonnent pas pareil partout : « 08/07 » se lit
+    juillet aux États-Unis et août en France. On garde donc l'ordre de la
+    langue, en retirant seulement l'année du motif complet.
+    """
+    l = lg.locale(langue())
+    if l.code == "zh":
+        return f"{jour.month}月{jour.day}日"
+    if l.code == "en":
+        return lg.formater_date(jour, "en")[:6]        # « 07 Aug »
+    return jour.strftime("%d/%m")
+
+
+def nom_mois(numero: int) -> str:
+    return lg.nom_mois(numero, langue())
+
+
+def jours_semaine() -> list[str]:
+    return lg.jours_semaine(langue())
+
+
+def premier_jour() -> int:
+    """0 = lundi, 6 = dimanche — pour `calendar.Calendar(firstweekday=…)`."""
+    return lg.locale(langue()).premier_jour_semaine
 
 
 # ---------------------------------------------------------------------------

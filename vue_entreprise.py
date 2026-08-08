@@ -29,21 +29,21 @@ VERT, ROUGE, ORANGE = "#1F7244", "#C0392B", "#E67E22"
 
 def barre_laterale_entreprise() -> None:
     """Les trois sources de donnees. Aucune n'est obligatoire."""
-    st.subheader("📥 Vos données")
-    st.caption("Chaque fichier ajoute des indicateurs. Aucun n'est obligatoire.")
+    st.subheader("📥 " + commun.t("ent.vos_donnees"))
+    st.caption(commun.t("ent.chaque_fichier"))
 
     for cle, etiquette, sens, aide in [
-        ("fc", "Factures **clients** (à encaisser)", "client",
+        ("fc", commun.t("ent.fc_titre"), "client",
          "Ce que vos clients vous doivent. Donne le délai d'encaissement, "
          "les impayés et la dépendance client."),
-        ("ff", "Factures **fournisseurs** (à payer)", "fournisseur",
+        ("ff", commun.t("ent.ff_titre"), "fournisseur",
          "Ce que vous devez. Donne le délai de paiement et l'encours à régler."),
     ]:
         st.markdown(etiquette)
         st.caption(aide)
         fichier = st.file_uploader(etiquette, type=["csv", "xlsx", "xls", "xlsm"],
                                    key=f"up_{cle}", label_visibility="collapsed")
-        if fichier is not None and st.button("Lire ce fichier", key=f"btn_{cle}",
+        if fichier is not None and st.button(commun.t("ent.lire_fichier"), key=f"btn_{cle}",
                                              use_container_width=True):
             try:
                 lecture = lire_factures(fichier, fichier.name, sens=sens,
@@ -57,7 +57,7 @@ def barre_laterale_entreprise() -> None:
         if lecture:
             st.success(f"{len(lecture.factures)} factures · "
                        f"{formater_court(lecture.total)}")
-            if st.button("Retirer", key=f"del_{cle}", use_container_width=True):
+            if st.button(commun.t("ent.retirer"), key=f"del_{cle}", use_container_width=True):
                 del st.session_state[f"lecture_{cle}"]
                 st.rerun()
         st.divider()
@@ -91,18 +91,18 @@ def _messages(ind) -> None:
 # ---------------------------------------------------------------------------
 
 def _tableau_de_bord(ind) -> None:
-    st.subheader("Ce que votre entreprise gagne et dépense, chaque mois")
+    st.subheader(commun.t("ent.gagne_depense"))
 
     a, b, c, d = st.columns(4)
-    _bloc(a, "Encaissé par mois", formater_court(ind.encaissements_par_mois),
+    _bloc(a, commun.t("ent.encaisse"), formater_court(ind.encaissements_par_mois),
           "argent réellement reçu", VERT)
-    _bloc(b, "Décaissé par mois", formater_court(ind.decaissements_par_mois),
+    _bloc(b, commun.t("ent.decaisse"), formater_court(ind.decaissements_par_mois),
           "argent réellement sorti", ROUGE)
     resultat_ok = ind.resultat_par_mois >= 0
-    _bloc(c, "Résultat par mois", formater_court(ind.resultat_par_mois),
+    _bloc(c, commun.t("ent.resultat"), formater_court(ind.resultat_par_mois),
           f"{ind.marge:.0f} % de vos encaissements",
           VERT if resultat_ok else ROUGE)
-    _bloc(d, "Trésorerie", formater_court(ind.tresorerie),
+    _bloc(d, commun.t("ent.tresorerie"), formater_court(ind.tresorerie),
           "solde saisi dans le panneau de gauche")
 
     st.write("")
@@ -111,31 +111,31 @@ def _tableau_de_bord(ind) -> None:
     if ind.runway_mois is not None:
         couleur = (ROUGE if ind.runway_mois < 3
                    else ORANGE if ind.runway_mois < 6 else VERT)
-        _bloc(e, "Autonomie (runway)", f"{ind.runway_mois:.1f} mois",
+        _bloc(e, commun.t("ent.autonomie"), f"{ind.runway_mois:.1f} mois",
               "avant épuisement de la trésorerie", couleur)
     elif resultat_ok:
-        _bloc(e, "Autonomie (runway)", "Illimitée",
+        _bloc(e, commun.t("ent.autonomie"), "Illimitée",
               "votre activité s'autofinance", VERT)
     else:
-        _bloc(e, "Autonomie (runway)", "—", "trésorerie non renseignée")
+        _bloc(e, commun.t("ent.autonomie"), "—", "trésorerie non renseignée")
 
     if ind.point_mort is not None:
         atteint = ind.encaissements_par_mois >= ind.point_mort
-        _bloc(f, "Point d'équilibre", formater_court(ind.point_mort),
+        _bloc(f, commun.t("ent.point_equilibre"), formater_court(ind.point_mort),
               "atteint" if atteint else "non atteint",
               VERT if atteint else ROUGE)
     else:
-        _bloc(f, "Point d'équilibre", "—", "importez un relevé bancaire")
+        _bloc(f, commun.t("ent.point_equilibre"), "—", "importez un relevé bancaire")
 
-    _bloc(g, "Charges fixes", formater_court(ind.charges_fixes),
+    _bloc(g, commun.t("ent.charges_fixes"), formater_court(ind.charges_fixes),
           f"{ind.part_fixe:.0f} % de vos charges",
           ORANGE if ind.part_fixe > 70 else "#1F4E79")
-    _bloc(h, "Charges variables", formater_court(ind.charges_variables),
+    _bloc(h, commun.t("ent.charges_var"), formater_court(ind.charges_variables),
           "sur lesquelles vous pouvez agir")
 
     st.write("")
     st.divider()
-    st.subheader("Ce que cela veut dire")
+    st.subheader(commun.t("ent.ce_que_ca_veut"))
     _messages(ind)
 
     st.caption(f"Période analysée : du {ind.debut.strftime('%d/%m/%Y')} au "
@@ -170,27 +170,27 @@ Amount, Due date, Paid on, Status…*
         return
 
     if factures_clients:
-        st.subheader("Vos clients")
+        st.subheader(commun.t("ent.vos_clients"))
         a, b, c, d = st.columns(4)
-        _bloc(a, "Facturé", formater_court(ind.ca_facture), "sur la période")
-        _bloc(b, "Reste à encaisser", formater_court(ind.encours_client),
+        _bloc(a, commun.t("ent.facture"), formater_court(ind.ca_facture), "sur la période")
+        _bloc(b, commun.t("ent.reste_encaisser"), formater_court(ind.encours_client),
               "factures non réglées",
               ORANGE if ind.encours_client > 0 else VERT)
-        _bloc(c, "Dont en retard", formater_court(ind.retard_client),
+        _bloc(c, commun.t("ent.dont_retard"), formater_court(ind.retard_client),
               "échéance dépassée",
               ROUGE if ind.retard_client > 0 else VERT)
         if ind.dso is not None:
-            _bloc(d, "Délai d'encaissement", f"{ind.dso:.0f} jours",
+            _bloc(d, commun.t("ent.delai_encaiss"), f"{ind.dso:.0f} jours",
                   "moyenne pondérée par les montants",
                   ROUGE if ind.dso > 60 else VERT)
         else:
-            _bloc(d, "Délai d'encaissement", "—", "aucun paiement daté")
+            _bloc(d, commun.t("ent.delai_encaiss"), "—", "aucun paiement daté")
 
         st.write("")
         g, h = st.columns([3, 2])
 
         with g:
-            st.markdown("**Répartition de votre chiffre d'affaires**")
+            st.markdown("**" + commun.t("ent.repartition_ca") + "**")
             for c_ in ind.concentration[:8]:
                 l1, l2, l3 = st.columns([3, 1.4, 2])
                 l1.write(c_.tiers[:34])
@@ -203,14 +203,14 @@ Amount, Due date, Paid on, Status…*
                             unsafe_allow_html=True)
 
         with h:
-            st.markdown("**Recouvrement**")
+            st.markdown("**" + commun.t("ent.recouvrement") + "**")
             if ind.taux_recouvrement is not None:
                 st.progress(min(1.0, ind.taux_recouvrement / 100),
                             text=f"{ind.taux_recouvrement:.0f} % de vos factures "
                                  f"sont encaissées")
             impayees = [f for f in factures_clients if not f.payee]
             if impayees:
-                st.markdown("**Factures à relancer**")
+                st.markdown("**" + commun.t("ent.a_relancer") + "**")
                 retards = sorted(impayees, key=lambda f: -f.jours_de_retard())
                 st.dataframe(pd.DataFrame([{
                     "Client": f.tiers[:26],
@@ -221,22 +221,22 @@ Amount, Due date, Paid on, Status…*
 
     if factures_fournisseurs:
         st.divider()
-        st.subheader("Vos fournisseurs")
+        st.subheader(commun.t("ent.vos_fournisseurs"))
         a, b, c = st.columns(3)
         _bloc(a, "Facturé par vos fournisseurs",
               formater_court(ind.achats_factures), "sur la période")
-        _bloc(b, "Reste à payer", formater_court(ind.encours_fournisseur),
+        _bloc(b, commun.t("ent.reste_payer"), formater_court(ind.encours_fournisseur),
               "dettes non réglées", ORANGE)
         if ind.dpo is not None:
-            _bloc(c, "Délai de paiement", f"{ind.dpo:.0f} jours",
+            _bloc(c, commun.t("ent.delai_paiement"), f"{ind.dpo:.0f} jours",
                   "moyenne pondérée par les montants")
         else:
-            _bloc(c, "Délai de paiement", "—", "aucun paiement daté")
+            _bloc(c, commun.t("ent.delai_paiement"), "—", "aucun paiement daté")
 
     ecart = ind.ecart_de_financement
     if ecart is not None:
         st.write("")
-        st.markdown("**Qui finance qui**")
+        st.markdown("**" + commun.t("ent.qui_finance") + "**")
         if ecart > 0:
             st.warning(
                 f"Vous êtes payé en {ind.dso:.0f} jours et vous payez en "
@@ -254,7 +254,7 @@ Amount, Due date, Paid on, Status…*
 # ---------------------------------------------------------------------------
 
 def _rapport(ind, syn) -> None:
-    st.subheader("Télécharger votre analyse")
+    st.subheader(commun.t("rap.telecharger"))
 
     titre = st.text_input("Titre du rapport", value="Analyse financière",
                           key="titre_ent")
@@ -314,18 +314,16 @@ def afficher_entreprise() -> None:
     mouvements = st.session_state.get("mouvements") or []
 
     if not mouvements and not factures_clients and not factures_fournisseurs:
-        st.info("**Trois fichiers possibles, aucun obligatoire.** "
-                "Commencez par ce que vous avez sous la main.")
+        st.info(commun.t("ent.trois_fichiers"))
         a, b, c = st.columns(3)
-        a.markdown("#### 🏦 Relevé bancaire\nCe qui est réellement entré et sorti.\n\n"
-                   "→ résultat, charges fixes, point d'équilibre, autonomie")
-        b.markdown("#### 🧾 Factures clients\nCe qu'on vous doit.\n\n"
-                   "→ délai d'encaissement, impayés, dépendance client")
-        c.markdown("#### 📥 Factures fournisseurs\nCe que vous devez.\n\n"
-                   "→ délai de paiement, encours à régler")
+        a.markdown(f"#### 🏦 {commun.t('ent.releve')}\n{commun.t('ent.releve_quoi')}\n\n"
+                   f"{commun.t('ent.releve_donne')}")
+        b.markdown(f"#### 🧾 {commun.t('ent.factures_clients')}\n{commun.t('ent.fc_quoi')}\n\n"
+                   f"{commun.t('ent.fc_donne')}")
+        c.markdown(f"#### 📥 {commun.t('ent.factures_fourn')}\n{commun.t('ent.ff_quoi')}\n\n"
+                   f"{commun.t('ent.ff_donne')}")
         st.divider()
-        st.caption("Formats acceptés : PDF, CSV, Excel. Les colonnes sont "
-                   "reconnues automatiquement, en français comme en anglais.")
+        st.caption(commun.t("ent.formats"))
         return
 
     ind = calculer_indicateurs(
@@ -343,8 +341,9 @@ def afficher_entreprise() -> None:
             syn = None
 
     o1, o2, o3, o5, o4 = st.tabs(
-        ["📈 Tableau de bord", "👥 Clients & fournisseurs",
-         "📅 Trésorerie prévisionnelle", "🔮 Scénarios", "📄 Rapport"])
+        ["📈 " + commun.t("ent.tableau_bord"), "👥 " + commun.t("ent.clients_fourn"),
+         "📅 " + commun.t("ent.tresorerie_prev"), "🔮 " + commun.t("sc.titre"),
+         "📄 " + commun.t("rap.titre")])
 
     with o5:
         from vue_scenarios import afficher_scenarios

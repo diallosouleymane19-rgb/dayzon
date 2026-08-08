@@ -14,6 +14,8 @@ from datetime import date
 import pandas as pd
 import streamlit as st
 
+import commun
+
 from commun import (MOIS_FR, construire_tresorerie, formater,
                     solde_de_depart)
 
@@ -26,20 +28,22 @@ def afficher_calendrier(cle: str = "part", mots: dict | None = None) -> None:
     identifiant dans une meme session provoquent une erreur Streamlit.
     """
     mots = mots or {}
-    titre_bas = mots.get("point_bas", "Point bas")
+    titre_bas = mots.get("point_bas", commun.t("cal.point_bas"))
 
     col_a, col_b, col_c = st.columns([2, 2, 3])
     with col_a:
-        debut = st.date_input("À partir du", value=date.today(), key=f"deb_{cle}")
+        debut = st.date_input(commun.t("cal.a_partir_du"), value=date.today(),
+                              key=f"deb_{cle}")
     with col_b:
-        horizon = st.select_slider("Horizon", options=[30, 60, 90, 180, 365],
-                                   value=90, format_func=lambda j: f"{j} jours",
+        horizon = st.select_slider(commun.t("cal.horizon"),
+                                   options=[30, 60, 90, 180, 365], value=90,
+                                   format_func=lambda j: commun.t("cal.jours", n=j),
                                    key=f"hor_{cle}")
     with col_c:
-        inclure = st.toggle(mots.get("incertain", "Inclure les montants incertains"),
+        inclure = st.toggle(mots.get("incertain", commun.t("cal.incertain")),
                             value=True, key=f"inc_{cle}",
                             help=mots.get("aide_incertain",
-                                          "Devis, prospects, rentrées hypothétiques"))
+                                          commun.t("cal.aide_incertain")))
 
     t = construire_tresorerie()
     jours = t.projeter(debut, horizon, inclure_incertain=inclure)
@@ -47,46 +51,48 @@ def afficher_calendrier(cle: str = "part", mots: dict | None = None) -> None:
 
     # --- Indicateurs ---
     k1, k2, k3, k4 = st.columns(4)
-    k1.metric(mots.get("solde_actuel", "Solde aujourd'hui"),
+    k1.metric(mots.get("solde_actuel", commun.t("cal.solde_aujourdhui")),
               formater(solde_de_depart()))
-    k2.metric(f"Dans {horizon} jours", formater(synth["solde_final"]),
+    k2.metric(commun.t("cal.dans_x_jours", n=horizon), formater(synth["solde_final"]),
               delta=formater(synth["variation_nette"]))
     k3.metric(titre_bas, formater(synth["solde_minimum"]),
               delta=synth["date_solde_min"].strftime("le %d/%m"), delta_color="off")
 
     if synth["alerte"]:
-        k4.metric("⚠️ Découvert le", synth["premier_jour_negatif"].strftime("%d/%m"),
-                  delta=f"dans {synth['jours_avant_negatif']} jours",
+        k4.metric("⚠️ " + commun.t("cal.decouvert_le"),
+                  commun.date_courte(synth["premier_jour_negatif"]),
+                  delta=commun.t("cal.jours", n=synth["jours_avant_negatif"]),
                   delta_color="inverse")
-        st.error(f"**Votre solde passe sous zéro le "
-                 f"{synth['premier_jour_negatif'].strftime('%d/%m/%Y')}**, soit dans "
-                 f"{synth['jours_avant_negatif']} jours. "
-                 f"{titre_bas} : {formater(synth['solde_minimum'])}.")
+        st.error(commun.t("cal.sous_zero",
+                          date=commun.date_longue(synth["premier_jour_negatif"]),
+                          n=synth["jours_avant_negatif"], bas=titre_bas,
+                          montant=formater(synth["solde_minimum"])))
     else:
-        k4.metric("Situation", "Aucun découvert", delta="sur la période",
+        k4.metric(commun.t("cal.situation"), commun.t("cal.aucun_decouvert"),
+                  delta=commun.t("cal.sur_periode"),
                   delta_color="off")
-        st.success(f"Aucun découvert prévu sur les {horizon} prochains jours. "
-                   f"{titre_bas} : {formater(synth['solde_minimum'])} "
-                   f"le {synth['date_solde_min'].strftime('%d/%m/%Y')}.")
+        st.success(commun.t("cal.pas_decouvert", n=horizon, bas=titre_bas,
+                            montant=formater(synth["solde_minimum"]),
+                            date=commun.date_longue(synth["date_solde_min"])))
 
     # --- Courbe ---
-    st.subheader("Évolution du solde")
+    st.subheader(commun.t("cal.evolution"))
     st.line_chart(pd.DataFrame({
-        "Date": [j.jour for j in jours],
-        "Solde": [float(j.solde) for j in jours],
-    }).set_index("Date"), height=260)
+        commun.t("col.date"): [j.jour for j in jours],
+        commun.t("col.solde"): [float(j.solde) for j in jours],
+    }).set_index(commun.t("col.date")), height=260)
 
     # --- Grille mensuelle ---
-    st.subheader("Calendrier — solde de fin de journée")
+    st.subheader(commun.t("cal.grille"))
 
     par_jour = {j.jour: j for j in jours}
     for annee, mois in sorted({(j.jour.year, j.jour.month) for j in jours})[:6]:
-        st.markdown(f"**{MOIS_FR[mois]} {annee}**")
+        st.markdown(f"**{commun.nom_mois(mois)} {annee}**")
         entete = st.columns(7)
-        for i, nom in enumerate(["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"]):
+        for i, nom in enumerate(commun.jours_semaine()):
             entete[i].caption(nom)
 
-        for semaine in calendar.Calendar(firstweekday=0).monthdatescalendar(annee, mois):
+        for semaine in calendar.Calendar(firstweekday=commun.premier_jour()).monthdatescalendar(annee, mois):
             cols = st.columns(7)
             for i, jour in enumerate(semaine):
                 with cols[i]:
@@ -114,12 +120,12 @@ def afficher_calendrier(cle: str = "part", mots: dict | None = None) -> None:
         st.write("")
 
     # --- Detail ---
-    with st.expander("Voir le détail jour par jour"):
+    with st.expander(commun.t("cal.detail")):
         st.dataframe(pd.DataFrame([{
-            "Date": j.jour.strftime("%d/%m/%Y"),
-            "Opérations": " · ".join(j.operations) if j.operations else "",
-            "Entrées": float(j.entrees) or None,
-            "Sorties": float(j.sorties) or None,
-            "Solde": float(j.solde),
+            commun.t("col.date"): commun.date_longue(j.jour),
+            commun.t("col.operations"): " · ".join(j.operations) if j.operations else "",
+            commun.t("col.entrees"): float(j.entrees) or None,
+            commun.t("col.sorties"): float(j.sorties) or None,
+            commun.t("col.solde"): float(j.solde),
         } for j in jours if j.operations or j.jour == debut]),
             use_container_width=True, hide_index=True)

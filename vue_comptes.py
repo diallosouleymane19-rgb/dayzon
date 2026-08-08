@@ -38,11 +38,10 @@ JOURS_AVANT_ALERTE_TAUX = 60
 def panneau_comptes(entreprise: bool) -> None:
     p = commun.portefeuille()
 
-    st.subheader("💼 Vos comptes")
+    st.subheader("💼 " + commun.t("comptes.titre"))
 
     if p.vide:
-        st.caption("Ajoutez au moins un compte pour démarrer. "
-                   "Chaque compte garde sa propre devise.")
+        st.caption(commun.t("comptes.vide"))
     else:
         for c in p.comptes:
             l1, l2 = st.columns([4, 1])
@@ -52,37 +51,36 @@ def panneau_comptes(entreprise: bool) -> None:
                 f"<span style='font-weight:600;color:{couleur}'>{c.nom}</span>"
                 f"<span style='font-size:11px;color:#888'> · {c.devise}"
                 f"{' · ' + c.etablissement if c.etablissement else ''}"
-                f"{'' if c.actif else ' · clos'}</span><br>"
+                f"{'' if c.actif else ' · ' + commun.t('comptes.clos')}</span><br>"
                 f"<span style='font-size:13px;font-weight:600;color:"
                 f"{ROUGE if c.solde < 0 else '#333'}'>"
                 f"{c.montant.formater()}</span></div>",
                 unsafe_allow_html=True)
             if l2.button("✕", key=f"del_cpt_{c.identifiant}",
-                         help=f"Retirer « {c.nom} »"):
+                         help=commun.t("comptes.retirer", nom=c.nom)):
                 p.retirer(c.identifiant)
                 commun.enregistrer()
                 st.rerun()
 
-    with st.expander("Ajouter un compte", expanded=p.vide):
+    with st.expander(commun.t("comptes.ajouter"), expanded=p.vide):
         with st.form("ajout_compte", clear_on_submit=True):
             nom = st.text_input(
-                "Nom du compte",
+                commun.t("comptes.nom"),
                 placeholder="Compte courant, Caisse, Wave Sénégal…")
             c1, c2 = st.columns(2)
             with c1:
                 devise = st.selectbox(
-                    "Devise de tenue", commun.DEVISES_PROPOSEES,
+                    commun.t("comptes.devise"), commun.DEVISES_PROPOSEES,
                     format_func=lambda d: f"{d} — {nom_devise(d)}",
-                    help="La devise dans laquelle ce compte est tenu. "
-                         "Elle ne change plus ensuite.")
+                    help=commun.t("comptes.aide_devise"))
             with c2:
-                solde = st.number_input("Solde actuel", value=0.0, step=100.0,
+                solde = st.number_input(commun.t("comptes.solde"), value=0.0, step=100.0,
                                         format="%.2f")
             etablissement = st.text_input(
-                "Banque ou établissement (facultatif)",
+                commun.t("comptes.etablissement"),
                 placeholder="Crédit Agricole, Wise, Orange Money…")
 
-            if st.form_submit_button("Ajouter ce compte", type="primary",
+            if st.form_submit_button(commun.t("comptes.valider"), type="primary",
                                      use_container_width=True):
                 try:
                     p.ajouter(Compte(nom=nom or "Compte", devise=devise,
@@ -100,10 +98,10 @@ def panneau_comptes(entreprise: bool) -> None:
     devises_possibles = sorted(set(commun.DEVISES_PROPOSEES) | set(p.devises))
     actuelle = commun.devise_reference()
     choisie = st.selectbox(
-        "Afficher les totaux en", devises_possibles,
+        commun.t("comptes.afficher_en"), devises_possibles,
         index=devises_possibles.index(actuelle) if actuelle in devises_possibles else 0,
         format_func=lambda d: f"{d} — {nom_devise(d)}",
-        help="Vos comptes gardent leur devise. Seul le total est converti.")
+        help=commun.t("comptes.aide_totaux"))
     if choisie != actuelle:
         st.session_state.devise = choisie
         p.definir_reference(choisie)
@@ -126,11 +124,12 @@ def _total_consolide(p) -> None:
         st.caption(f"Affiché sans conversion : {partiel.formater()}")
         return
 
+    etiquette_total = commun.t("comptes.total")
     st.markdown(
         f"<div style='background:#f4f7f8;border-radius:10px;padding:10px 12px;"
         f"margin-top:6px'>"
         f"<div style='font-size:10px;color:#777;letter-spacing:.4px'>"
-        f"TOTAL CONSOLIDÉ</div>"
+        f"{etiquette_total}</div>"
         f"<div style='font-size:21px;font-weight:700;color:"
         f"{ROUGE if cons.total.negatif else '#123e53'}'>"
         f"{cons.total.formater()}</div>"
@@ -145,11 +144,11 @@ def _total_consolide(p) -> None:
 
     # C'est ici que se corrige le défaut relevé : le taux employé est visible,
     # daté et sourcé, au lieu d'un total converti sans justification.
-    with st.expander("D'où vient ce total ?"):
+    with st.expander(commun.t("comptes.origine_total")):
         for devise, sous_total in cons.par_devise.items():
             st.caption(f"**{sous_total.formater()}** en {nom_devise(devise)}")
         st.divider()
-        st.caption("**Taux employés**")
+        st.caption("**" + commun.t("taux.employes") + "**")
         for t in cons.taux_employes:
             age = t.anciennete()
             couleur = ORANGE if age > JOURS_AVANT_ALERTE_TAUX else "#666"
@@ -176,13 +175,12 @@ def panneau_taux() -> None:
     besoins = [d for d in p.devises if d != reference]
     manquants = [d for d in besoins if table.trouver(d, reference) is None]
 
-    titre = "💱 Taux de change"
+    titre = "💱 " + commun.t("taux.titre")
     if manquants:
         titre += f" — {len(manquants)} manquant{'s' if len(manquants) > 1 else ''}"
 
     with st.expander(titre, expanded=bool(manquants)):
-        st.caption("Ces taux sont saisis à la main. Ils portent leur date et "
-                   "leur source pour que vos totaux restent justifiables.")
+        st.caption(commun.t("taux.explication"))
 
         if manquants:
             st.warning(f"Taux à renseigner : {', '.join(manquants)}")
@@ -217,9 +215,9 @@ def panneau_taux() -> None:
                                      format="%.6f")
             c3, c4 = st.columns(2)
             with c3:
-                observe = st.date_input("Constaté le", value=date.today())
+                observe = st.date_input(commun.t("taux.constate_le"), value=date.today())
             with c4:
-                source = st.text_input("Source", value="saisie manuelle",
+                source = st.text_input(commun.t("taux.source"), value="saisie manuelle",
                                        help="BCE, votre banque, un site de "
                                             "change… pour pouvoir le justifier.")
 
@@ -249,7 +247,7 @@ def panneau_sauvegarde() -> None:
     laisser croire à une sauvegarde qui n'aurait pas lieu.
     """
     local = sv.mode_local()
-    titre = "💾 Sauvegarde" if local else "💾 Vos données"
+    titre = "💾 " + (commun.t("sauv.titre") if local else commun.t("sauv.vos_donnees"))
 
     with st.expander(titre):
         st.caption(sv.raison_mode())
@@ -257,9 +255,7 @@ def panneau_sauvegarde() -> None:
         if local:
             _sauvegarde_locale()
         else:
-            st.info("**Rien n'est enregistré sur le serveur.** Vos comptes et "
-                    "vos opérations disparaissent en fermant l'onglet. "
-                    "Téléchargez votre fichier pour les retrouver plus tard.")
+            st.info(commun.t("sauv.rien_serveur"))
 
         st.divider()
         _emporter_et_reprendre()
@@ -267,23 +263,23 @@ def panneau_sauvegarde() -> None:
 
 def _emporter_et_reprendre() -> None:
     """Télécharger son fichier, et le redéposer plus tard ou ailleurs."""
-    st.caption("**Emporter mes données**")
+    st.caption("**" + commun.t("sauv.emporter") + "**")
     try:
         st.download_button(
-            "⬇️ Télécharger mes données",
+            "⬇️ " + commun.t("sauv.telecharger"),
             data=commun.exporter_octets(),
             file_name=sv.nom_fichier_export(),
             mime="application/json",
             use_container_width=True,
-            help="Un fichier que vous conservez. Il ne passe pas par le serveur.")
+            help=commun.t("sauv.aide_telech"))
     except sv.ErreurSauvegarde as err:
         st.error(str(err))
 
-    st.caption("**Reprendre un fichier**")
+    st.caption("**" + commun.t("sauv.reprendre") + "**")
     depose = st.file_uploader("Fichier Dayzon", type=["json"],
                               key="reprise_fichier",
                               label_visibility="collapsed")
-    if depose is not None and st.button("Charger ce fichier",
+    if depose is not None and st.button(commun.t("sauv.charger"),
                                         use_container_width=True,
                                         key="btn_reprise"):
         try:
@@ -297,7 +293,7 @@ def _emporter_et_reprendre() -> None:
 def _sauvegarde_locale() -> None:
     """Enregistrement automatique sur le poste de l'utilisateur."""
     st.session_state.sauvegarde_auto = st.toggle(
-        "Enregistrer automatiquement",
+        commun.t("sauv.auto"),
         value=st.session_state.sauvegarde_auto,
         help="Vos données restent sur cet ordinateur. Rien n'est envoyé.")
 
@@ -315,14 +311,14 @@ def _sauvegarde_locale() -> None:
         st.error(erreur)
 
     c1, c2 = st.columns(2)
-    if c1.button("Enregistrer", use_container_width=True):
+    if c1.button(commun.t("compte.enregistrer"), use_container_width=True):
         try:
             commun.enregistrer(force=True)
             st.success("Enregistré.")
         except sv.ErreurSauvegarde as err:
             st.error(str(err))
 
-    if infos and c2.button("Effacer", use_container_width=True,
+    if infos and c2.button(commun.t("sauv.effacer"), use_container_width=True,
                            help="Supprime la sauvegarde de cet ordinateur."):
         st.session_state.confirmer_effacement = True
 
