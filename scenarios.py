@@ -179,7 +179,8 @@ class Resultat:
     def tient(self) -> bool:
         return self.premier_jour_negatif is None
 
-    def verdict(self, t=None, date_lisible=None) -> tuple[str, str]:
+    def verdict(self, t=None, date_lisible=None, montant_lisible=None
+                ) -> tuple[str, str]:
         """
         Une phrase qui dit s'il faut s'inquiéter, et pourquoi.
 
@@ -189,9 +190,10 @@ class Resultat:
         """
         t = t or _texte
         ecrire = date_lisible or (lambda j: j.strftime("%d/%m/%Y"))
+        somme = montant_lisible or self._n
 
         if self.tient:
-            return ("bon", t("vd.tient", montant=self._n(self.solde_minimum),
+            return ("bon", t("vd.tient", montant=somme(self.solde_minimum),
                              date=ecrire(self.date_solde_min)))
         if self.jours_avant_negatif is not None and self.jours_avant_negatif <= 30:
             return ("alerte", t("vd.alerte",
@@ -202,7 +204,13 @@ class Resultat:
                                n=self.jours_avant_negatif))
 
     def _n(self, v) -> str:
-        """Un verdict se lit seul, hors contexte : il doit porter sa devise."""
+        """
+        Repli quand l'interface ne fournit pas de formateur.
+
+        Un verdict se lit seul, hors contexte : il doit porter sa devise.
+        La typographie est francaise — c'est a l'appelant de passer
+        `montant_lisible` s'il connait la langue de lecture.
+        """
         symboles = {"EUR": "€", "USD": "$", "GBP": "£", "CAD": "C$",
                     "CHF": "CHF", "XOF": "FCFA", "XAF": "FCFA", "MAD": "DH",
                     "TRY": "₺", "NGN": "₦", "AED": "AED", "CNY": "¥"}

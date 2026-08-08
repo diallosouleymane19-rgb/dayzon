@@ -178,7 +178,8 @@ def afficher_scenarios(profil: str = "Particulier") -> None:
 
     for r in resultats:
         reference = r.nom == base.nom
-        niveau, phrase = r.verdict(commun.t, commun.date_longue)
+        niveau, phrase = r.verdict(commun.t, commun.date_longue,
+                                   formater_court)
         couleur = {"bon": VERT, "attention": ORANGE, "alerte": ROUGE}[niveau]
 
         c1, c2, c3 = st.columns([3.2, 2, 2])
