@@ -35,6 +35,23 @@ from decimal import Decimal
 
 import streamlit as st
 
+import langues as lg
+
+
+def _t(cle: str, **variables) -> str:
+    """
+    Traduit un message pour l'utilisateur.
+
+    Ce module ne peut pas importer `commun` : `commun` l'importe deja pour
+    enregistrer en base, et l'import croise casserait le demarrage. On lit
+    donc la langue directement dans la session, et `langues` reste pur.
+    """
+    try:
+        code = st.session_state.get("langue", lg.LANGUE_PAR_DEFAUT)
+    except Exception:
+        code = lg.LANGUE_PAR_DEFAUT
+    return lg.traduire(cle, code, **variables)
+
 
 class ErreurCompte(Exception):
     """Message destiné à l'utilisateur, jamais une trace technique."""
@@ -78,15 +95,14 @@ def client():
     config = configuration()
     if not config.active:
         raise ErreurCompte(
-            "Les comptes ne sont pas configurés sur cette installation.")
+            _t("err.non_configure"))
     try:
         return _client(config.url, config.cle_publique)
     except ImportError:
         raise ErreurCompte(
-            "La bibliothèque Supabase n'est pas installée. "
-            "Lancez : py -m pip install supabase")
+            _t("err.bibliotheque"))
     except Exception as err:
-        raise ErreurCompte(f"Connexion au service impossible : {err}")
+        raise ErreurCompte(_t("err.service", erreur=err))
 
 
 def comptes_disponibles() -> bool:
@@ -121,27 +137,22 @@ def _messages_lisibles(erreur: Exception) -> str:
     « Invalid login credentials » dans une application française.
     """
     texte = str(erreur).lower()
-    traductions = [
-        ("invalid login credentials",
-         "Adresse ou mot de passe incorrect."),
-        ("email not confirmed",
-         "Votre adresse n'est pas encore confirmée. "
-         "Ouvrez le message que nous vous avons envoyé."),
-        ("user already registered",
-         "Un compte existe déjà avec cette adresse. Connectez-vous."),
-        ("password should be at least",
-         "Le mot de passe doit contenir au moins 6 caractères."),
-        ("unable to validate email",
-         "Cette adresse e-mail n'est pas valide."),
-        ("for security purposes",
-         "Trop de tentatives. Patientez une minute avant de réessayer."),
-        ("email rate limit",
-         "Trop de messages envoyés à cette adresse. Réessayez plus tard."),
+    correspondances = [
+        ("invalid login credentials",  "err.identifiants"),
+        ("email not confirmed",        "err.non_confirme"),
+        ("user already registered",    "err.deja_inscrit"),
+        ("password should be at least", "err.mot_court"),
+        ("unable to validate email",   "err.email_invalide"),
+        ("for security purposes",      "err.trop_tentatives"),
+        ("email rate limit",           "err.trop_messages"),
+        ("token has expired",          "err.code_invalide"),
+        ("invalid token",              "err.code_invalide"),
+        ("otp_expired",                "err.code_invalide"),
     ]
-    for motif, message in traductions:
+    for motif, cle in correspondances:
         if motif in texte:
-            return message
-    return "L'opération a échoué. Vérifiez votre connexion et réessayez."
+            return _t(cle)
+    return _t("err.echec")
 
 
 def inscrire(email: str, mot_de_passe: str) -> str:
@@ -153,11 +164,9 @@ def inscrire(email: str, mot_de_passe: str) -> str:
     """
     email = (email or "").strip().lower()
     if not email or "@" not in email:
-        raise ErreurCompte("Indiquez une adresse e-mail valide.")
+        raise ErreurCompte(_t("err.email_requis"))
     if len(mot_de_passe or "") < 8:
-        raise ErreurCompte(
-            "Choisissez un mot de passe d'au moins 8 caractères. "
-            "Il protège vos données financières.")
+        raise ErreurCompte(_t("err.mot_8"))
 
     try:
         reponse = client().auth.sign_up(
@@ -169,15 +178,14 @@ def inscrire(email: str, mot_de_passe: str) -> str:
 
     if reponse.session is not None:
         _ouvrir(reponse)
-        return "Compte créé. Bienvenue."
-    return ("Compte créé. Ouvrez le message envoyé à "
-            f"{email} pour confirmer votre adresse, puis connectez-vous.")
+        return _t("cpt.cree_bienvenue")
+    return _t("cpt.cree_confirmer", email=email)
 
 
 def connecter(email: str, mot_de_passe: str) -> None:
     email = (email or "").strip().lower()
     if not email or not mot_de_passe:
-        raise ErreurCompte("Indiquez votre adresse et votre mot de passe.")
+        raise ErreurCompte(_t("err.identifiants_requis"))
     try:
         reponse = client().auth.sign_in_with_password(
             {"email": email, "password": mot_de_passe})
@@ -187,7 +195,7 @@ def connecter(email: str, mot_de_passe: str) -> None:
         raise ErreurCompte(_messages_lisibles(err))
 
     if reponse.session is None:
-        raise ErreurCompte("Adresse ou mot de passe incorrect.")
+        raise ErreurCompte(_t("err.identifiants"))
     _ouvrir(reponse)
 
 
@@ -222,9 +230,19 @@ def deconnecter() -> None:
 
 
 def reinitialiser_mot_de_passe(email: str) -> str:
+    """
+    Envoie le message de récupération.
+
+    Le message contient un code à six chiffres, et non seulement un lien.
+    Un lien de récupération renvoie le jeton dans le fragment de l'URL
+    (« #access_token=… »), que Streamlit ne peut pas lire : le fragment ne
+    quitte jamais le navigateur. Le code, lui, se saisit dans l'écran
+    suivant — cela fonctionne partout, y compris quand l'utilisateur ouvre
+    son courrier sur son téléphone et l'application sur son ordinateur.
+    """
     email = (email or "").strip().lower()
     if not email or "@" not in email:
-        raise ErreurCompte("Indiquez l'adresse de votre compte.")
+        raise ErreurCompte(_t("err.adresse_compte"))
     try:
         client().auth.reset_password_for_email(email)
     except ErreurCompte:
@@ -233,8 +251,57 @@ def reinitialiser_mot_de_passe(email: str) -> str:
         raise ErreurCompte(_messages_lisibles(err))
     # On répond la même chose que l'adresse existe ou non : révéler
     # quelles adresses sont inscrites renseignerait un attaquant.
-    return (f"Si un compte existe pour {email}, un message vient d'être "
-            f"envoyé avec la marche à suivre.")
+    return _t("cpt.envoye", email=email)
+
+
+def verifier_code(email: str, code: str) -> None:
+    """
+    Vérifie le code reçu par courrier et ouvre la session.
+
+    Le code n'autorise qu'une chose : choisir un nouveau mot de passe. Il
+    expire, et il ne sert qu'une fois — c'est Supabase qui l'impose, non
+    ce module.
+    """
+    email = (email or "").strip().lower()
+    code = (code or "").strip().replace(" ", "")
+    if not email or "@" not in email:
+        raise ErreurCompte(_t("err.adresse_compte"))
+    if not code:
+        raise ErreurCompte(_t("err.code_requis"))
+
+    try:
+        reponse = client().auth.verify_otp(
+            {"email": email, "token": code, "type": "recovery"})
+    except ErreurCompte:
+        raise
+    except Exception as err:
+        raise ErreurCompte(_messages_lisibles(err))
+
+    if reponse.session is None:
+        raise ErreurCompte(_t("err.code_invalide"))
+    _ouvrir(reponse)
+
+
+def changer_mot_de_passe(nouveau: str) -> str:
+    """
+    Remplace le mot de passe de l'utilisateur connecté.
+
+    Exige une session ouverte : sans elle, n'importe qui pourrait changer
+    le mot de passe de n'importe qui. La session vient soit d'une
+    connexion normale, soit d'un code de récupération vérifié.
+    """
+    if not connecte():
+        raise ErreurCompte(_t("err.non_connecte"))
+    if len(nouveau or "") < 8:
+        raise ErreurCompte(_t("err.mot_8"))
+
+    try:
+        client().auth.update_user({"password": nouveau})
+    except ErreurCompte:
+        raise
+    except Exception as err:
+        raise ErreurCompte(_messages_lisibles(err))
+    return _t("cpt.mot_modifie")
 
 
 # ---------------------------------------------------------------------------
@@ -273,10 +340,10 @@ def espace_id() -> str:
 def charger_espace() -> dict:
     """Ramène tout ce qui appartient à l'utilisateur connecté."""
     if not connecte():
-        raise ErreurCompte("Vous n'êtes pas connecté.")
+        raise ErreurCompte(_t("err.non_connecte"))
     identifiant = espace_id()
     if not identifiant:
-        raise ErreurCompte("Aucun espace de travail n'a été trouvé.")
+        raise ErreurCompte(_t("err.aucun_espace"))
 
     c = client()
     try:
@@ -289,7 +356,7 @@ def charger_espace() -> dict:
     except ErreurCompte:
         raise
     except Exception as err:
-        raise ErreurCompte(f"Lecture impossible : {err}")
+        raise ErreurCompte(_t("err.lecture", erreur=err))
 
     return {
         "profil": espace.data.get("profil", "Particulier"),
@@ -330,10 +397,10 @@ def enregistrer_espace(profil: str, devise_reference: str,
     action de l'utilisateur, pas en continu.
     """
     if not connecte():
-        raise ErreurCompte("Vous n'êtes pas connecté.")
+        raise ErreurCompte(_t("err.non_connecte"))
     identifiant = espace_id()
     if not identifiant:
-        raise ErreurCompte("Aucun espace de travail n'a été trouvé.")
+        raise ErreurCompte(_t("err.aucun_espace"))
 
     c = client()
     try:
@@ -404,7 +471,7 @@ def supprimer_mon_compte() -> None:
     définitive de son identifiant.
     """
     if not connecte():
-        raise ErreurCompte("Vous n'êtes pas connecté.")
+        raise ErreurCompte(_t("err.non_connecte"))
     identifiant = espace_id()
     c = client()
     try:

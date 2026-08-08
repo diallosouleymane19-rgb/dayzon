@@ -121,14 +121,53 @@ def _deconnecte() -> None:
                         st.error(str(err))
 
         with onglet_oubli:
-            with st.form("oubli"):
-                email = st.text_input(commun.t("cpt.email_compte"), key="ob_email")
-                if st.form_submit_button(commun.t("cpt.lien"),
-                                         use_container_width=True):
-                    try:
-                        st.info(compte.reinitialiser_mot_de_passe(email))
-                    except compte.ErreurCompte as err:
-                        st.error(str(err))
+            _mot_de_passe_oublie()
+
+
+def _mot_de_passe_oublie() -> None:
+    """
+    Deux étapes : recevoir un code, puis choisir un mot de passe.
+
+    L'ancienne version envoyait un lien et s'arrêtait là. Le lien ramenait
+    bien l'utilisateur sur l'application, mais avec le jeton dans le
+    fragment de l'URL — invisible pour Streamlit — et aucun écran pour
+    saisir quoi que ce soit. La promesse était affichée, jamais tenue.
+    """
+    st.caption(commun.t("cpt.oubli_explication"))
+
+    with st.form("oubli_demande"):
+        email = st.text_input(commun.t("cpt.email_compte"), key="ob_email")
+        if st.form_submit_button(commun.t("cpt.recevoir_code"),
+                                 use_container_width=True):
+            try:
+                st.session_state.attente_code = True
+                st.info(compte.reinitialiser_mot_de_passe(email))
+            except compte.ErreurCompte as err:
+                st.error(str(err))
+
+    if not st.session_state.get("attente_code"):
+        return
+
+    st.divider()
+    with st.form("oubli_code"):
+        st.caption(commun.t("cpt.code_recu"))
+        code = st.text_input(commun.t("cpt.code"), key="ob_code",
+                             max_chars=10, placeholder="123456")
+        nouveau = st.text_input(commun.t("cpt.nouveau_mot"), type="password",
+                                key="ob_mot", help=commun.t("cpt.aide_mot"))
+        if st.form_submit_button(commun.t("cpt.valider_mot"), type="primary",
+                                 use_container_width=True):
+            try:
+                # L'ordre compte : le code ouvre la session, la session
+                # autorise le changement. L'inverse échouerait.
+                compte.verifier_code(st.session_state.get("ob_email", ""), code)
+                message = compte.changer_mot_de_passe(nouveau)
+                st.session_state.pop("attente_code", None)
+                st.success(message)
+                _recharger_depuis_base()
+                st.rerun()
+            except compte.ErreurCompte as err:
+                st.error(str(err))
 
 
 def _recharger_depuis_base() -> None:

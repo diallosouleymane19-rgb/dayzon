@@ -197,6 +197,45 @@ for chemin in sorted(Path(".").glob("vue_*.py")) + [Path("app_tresorerie.py")]:
     verifier(f"{chemin.name} n'ecrit pas de date au format francais en dur",
              not motif_date.search(contenu))
 
+print("\n5. Les messages d'authentification suivent la langue")
+
+# Ces messages n'apparaissent qu'en cas d'erreur : aucun test d'ecran ne
+# les rend. Ils etaient restes en francais pendant tout le chantier.
+import compte                                                  # noqa: E402
+import streamlit as st                                         # noqa: E402
+
+for code, extrait in (("fr", "adresse"), ("en", "email"),
+                      ("es", "correo"), ("zh", "邮")):
+    st.session_state["langue"] = code
+    try:
+        compte.inscrire("pas-une-adresse", "motdepasselong")
+        message = ""
+    except compte.ErreurCompte as err:
+        message = str(err)
+    verifier(f"{code} : l'adresse invalide est signalee dans la langue "
+             f"({message[:34]})", extrait in message.lower())
+
+st.session_state["langue"] = "en"
+try:
+    compte.changer_mot_de_passe("court")
+    message = ""
+except compte.ErreurCompte as err:
+    message = str(err)
+verifier("en : le mot de passe trop court est en anglais",
+         "sign" in message.lower() or "password" in message.lower())
+st.session_state["langue"] = "fr"
+
+# Aucune phrase francaise ne doit subsister en dur dans le module.
+src_compte = Path("compte.py").read_text(encoding="utf-8")
+en_dur = re.findall(r'ErreurCompte\(\s*"([^"]{18,})"', src_compte)
+verifier(f"compte.py n'a plus de message en dur ({len(en_dur)} trouve(s))",
+         not en_dur)
+for m in en_dur[:5]:
+    print(f"          · {m[:70]}")
+
+
+print("\n6. Les montants suivent la langue, pas le code")
+
 # Le yen n'a pas de centimes, quelle que soit la langue de lecture.
 for code in ("fr", "en", "es", "zh"):
     yen = lg.formater_montant(Decimal("1234"), "JPY", code)

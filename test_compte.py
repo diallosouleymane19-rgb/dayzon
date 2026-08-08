@@ -166,6 +166,49 @@ verifier("session porte l'adresse", s.email, "a@b.fr")
 verifier("espace vide par defaut", s.espace_id, "")
 
 
+# ---------------------------------------------------------------------------
+print("\n7. Recuperation d'un mot de passe oublie")
+# ---------------------------------------------------------------------------
+
+# Ces controles s'arretent avant tout appel reseau : ils verifient que les
+# saisies vides ou absurdes sont refusees ici, et non par le service.
+leve("code : adresse vide refusee",
+     lambda: compte.verifier_code("", "123456"), "adresse")
+leve("code : adresse sans arobase refusee",
+     lambda: compte.verifier_code("souleymane", "123456"), "adresse")
+leve("code : code vide refuse",
+     lambda: compte.verifier_code("a@b.fr", "   "), "code")
+
+# Le changement exige une session : sans elle, n'importe qui pourrait
+# changer le mot de passe de n'importe qui.
+import streamlit as st
+st.session_state.pop("session_utilisateur", None)
+leve("changement sans session refuse",
+     lambda: compte.changer_mot_de_passe("motdepasselong"), "connect")
+
+st.session_state.session_utilisateur = compte.Session(
+    identifiant="test", email="a@b.fr")
+leve("mot de passe trop court refuse",
+     lambda: compte.changer_mot_de_passe("court"), "8 caract")
+st.session_state.pop("session_utilisateur", None)
+
+# Le parcours doit exister d'un bout a l'autre : demander, verifier, changer.
+from pathlib import Path
+vue = Path("vue_compte.py").read_text(encoding="utf-8")
+verifier("l'ecran demande un code", "cpt.recevoir_code" in vue, True)
+verifier("l'ecran verifie le code", "compte.verifier_code(" in vue, True)
+verifier("l'ecran change le mot de passe",
+         "compte.changer_mot_de_passe(" in vue, True)
+verifier("le code est verifie avant le changement",
+         vue.index("compte.verifier_code(")
+         < vue.index("compte.changer_mot_de_passe("), True)
+
+# Un mot de passe ne doit jamais partir dans une trace ni dans une URL.
+src = Path("compte.py").read_text(encoding="utf-8")
+verifier("aucun mot de passe journalise",
+         "print(" not in src and "logging" not in src, True)
+
+
 print("\n" + "=" * 62)
 if ko:
     print(f"{ok} verifications reussies, {len(ko)} ECHECS :")
