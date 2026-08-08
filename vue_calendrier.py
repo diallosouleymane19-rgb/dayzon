@@ -56,7 +56,9 @@ def afficher_calendrier(cle: str = "part", mots: dict | None = None) -> None:
     k2.metric(commun.t("cal.dans_x_jours", n=horizon), formater(synth["solde_final"]),
               delta=formater(synth["variation_nette"]))
     k3.metric(titre_bas, formater(synth["solde_minimum"]),
-              delta=synth["date_solde_min"].strftime("le %d/%m"), delta_color="off")
+              delta=commun.t("cal.le_date",
+                             date=commun.date_courte(synth["date_solde_min"])),
+              delta_color="off")
 
     if synth["alerte"]:
         k4.metric("⚠️ " + commun.t("cal.decouvert_le"),

@@ -14,8 +14,16 @@ humaine — mais il rend impossible d'oublier de brancher un ecran.
 from __future__ import annotations
 
 import json
+import os
+import re
 import sys
 from pathlib import Path
+
+# Sans cela, le premier passage ecrit une sauvegarde locale que le second
+# recharge — langue comprise. Le test en francais imposait alors sa langue
+# aux trois suivants, et l'anglais se retrouvait plein de francais.
+# On se declare heberge : aucune lecture, aucune ecriture de fichier.
+os.environ["DAYZON_HEBERGE"] = "1"
 
 from streamlit.testing.v1 import AppTest
 
@@ -47,6 +55,13 @@ def textes_affiches(at: AppTest) -> list[str]:
     valeurs += [s.label for s in at.selectbox]
     valeurs += [c.label for c in at.checkbox]
     valeurs += [r.label for r in at.radio]
+
+    # Les choix proposes comptent autant que les etiquettes : le catalogue
+    # de scenarios vivait dans les options d'un multiselect, invisible pour
+    # une premiere version de ce test.
+    for liste in (at.multiselect, at.selectbox, at.radio):
+        for widget in liste:
+            valeurs += [o for o in getattr(widget, "options", [])]
     return [v for v in valeurs if isinstance(v, str)]
 
 
@@ -69,17 +84,55 @@ for code in ("en", "es", "zh"):
 
 print("\n2. L'application s'affiche vraiment dans la langue choisie")
 
+def avec_donnees(at: AppTest) -> None:
+    """
+    Place un compte et quelques echeances avant le premier rendu.
+
+    Sans donnees, l'application s'arrete a l'ecran d'accueil et le
+    calendrier n'est jamais rendu. Un test qui se contente de l'ecran vide
+    laisse passer la moitie des textes — c'est ainsi qu'un « le 05/09 »
+    est parti en production.
+
+    On remplit l'etat plutot que de cliquer sur « Charger un exemple » :
+    AppTest ne sait pas relire un radio muni d'un `format_func`, et le
+    clic echouerait sur le selecteur de profil.
+    """
+    from datetime import date, timedelta
+    from decimal import Decimal
+
+    from comptes import Compte, Portefeuille
+    from moteur_tresorerie import Recurrence
+
+    p = Portefeuille(devise_reference="EUR")
+    p.ajouter(Compte("Compte courant", "EUR", Decimal("2500")))
+    at.session_state["portefeuille"] = p
+
+    jour = date.today()
+    at.session_state["operations"] = [
+        {"libelle": "Salaire", "montant": 2800, "date": jour,
+         "devise": "EUR", "recurrence": Recurrence.MENSUELLE, "certaine": True},
+        {"libelle": "Loyer", "montant": -950, "date": jour + timedelta(days=3),
+         "devise": "EUR", "recurrence": Recurrence.MENSUELLE, "certaine": True},
+        {"libelle": "Assurance", "montant": -680,
+         "date": jour + timedelta(days=25), "devise": "EUR",
+         "recurrence": Recurrence.ANNUELLE, "certaine": False},
+    ]
+
+
 for code in ("fr", "en", "es", "zh"):
     at = AppTest.from_file("app_tresorerie.py", default_timeout=120)
     at.session_state["langue"] = code
+    avec_donnees(at)
     at.run()
 
     verifier(f"{code} : l'application demarre sans erreur", not at.exception)
     if at.exception:
+        print(f"          {at.exception[0].message}")
         continue
 
     affiches = textes_affiches(at)
-    verifier(f"{code} : {len(affiches)} elements affiches", len(affiches) > 10)
+    verifier(f"{code} : le calendrier est rendu ({len(affiches)} elements)",
+             len(affiches) > 25)
 
     if code == "fr":
         continue
@@ -134,6 +187,15 @@ attendus = {
 for code, attendu in attendus.items():
     obtenu = lg.formater_montant(mille.valeur, "EUR", code)
     verifier(f"{code} : 1234.56 EUR s'ecrit {attendu!r}", obtenu == attendu)
+
+# Meme raisonnement pour les dates : « 05/09 » se lit 5 septembre en France
+# et 9 mai aux Etats-Unis. Un strftime avec des barres obliques dans une vue
+# est donc toujours une erreur ; %Y%m%d dans un nom de fichier ne l'est pas.
+motif_date = re.compile(r"strftime\(\s*['\"][^'\"]*/")
+for chemin in sorted(Path(".").glob("vue_*.py")) + [Path("app_tresorerie.py")]:
+    contenu = chemin.read_text(encoding="utf-8")
+    verifier(f"{chemin.name} n'ecrit pas de date au format francais en dur",
+             not motif_date.search(contenu))
 
 # Le yen n'a pas de centimes, quelle que soit la langue de lecture.
 for code in ("fr", "en", "es", "zh"):

@@ -138,9 +138,10 @@ def _tableau_de_bord(ind) -> None:
     st.subheader(commun.t("ent.ce_que_ca_veut"))
     _messages(ind)
 
-    st.caption(f"Période analysée : du {ind.debut.strftime('%d/%m/%Y')} au "
-               f"{ind.fin.strftime('%d/%m/%Y')} — soit {ind.nb_mois:.1f} mois. "
-               f"Tous les montants sont ramenés au mois pour rester comparables.")
+    st.caption(commun.t("ent.periode",
+                        debut=commun.date_longue(ind.debut),
+                        fin=commun.date_longue(ind.fin),
+                        mois=f"{ind.nb_mois:.1f}"))
 
 
 # ---------------------------------------------------------------------------

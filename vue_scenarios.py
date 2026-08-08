@@ -36,8 +36,9 @@ def _formulaire_sur_mesure(operations: list[dict]) -> None:
         nom = st.text_input(commun.t("sc.nom"), key="sc_nom",
                             placeholder=commun.t("sc.placeholder_nom"))
 
-        genre = st.selectbox(commun.t("sc.supposer"), list(GENRES),
-                             format_func=lambda g: GENRES[g], key="sc_genre")
+        genre = st.selectbox(commun.t("sc.supposer"), GENRES,
+                             format_func=lambda g: commun.t("gen." + g),
+                             key="sc_genre")
 
         libelles = sorted({o["libelle"] for o in operations})
         h = None
@@ -45,8 +46,8 @@ def _formulaire_sur_mesure(operations: list[dict]) -> None:
         if genre in ("varier", "supprimer", "decaler"):
             c1, c2 = st.columns(2)
             with c1:
-                portee = st.selectbox(commun.t("sc.sur_quoi"), list(PORTEES),
-                                      format_func=lambda p: PORTEES[p],
+                portee = st.selectbox(commun.t("sc.sur_quoi"), PORTEES,
+                                      format_func=lambda p: commun.t("por." + p),
                                       key="sc_portee")
             with c2:
                 toutes = commun.t("sc.toutes")
@@ -98,11 +99,11 @@ def _formulaire_sur_mesure(operations: list[dict]) -> None:
             h = Hypothese("solde", valeur)
 
         if h is not None:
-            st.caption(commun.t("sc.hypothese", phrase=h.phrase()))
+            st.caption(commun.t("sc.hypothese", phrase=h.phrase(commun.t)))
             if st.button(commun.t("sc.ajouter"), type="primary", key="sc_ok"):
                 st.session_state.setdefault("scenarios_perso", [])
                 st.session_state.scenarios_perso.append(
-                    Scenario(nom or h.phrase(), [h],
+                    Scenario(nom or h.phrase(commun.t), [h],
                              commun.t("sc.defini_par_vous")))
                 st.rerun()
 
@@ -120,7 +121,7 @@ def afficher_scenarios(profil: str = "Particulier") -> None:
     st.subheader(commun.t("sc.et_si"))
     st.caption(commun.t("sc.explication"))
 
-    catalogue = modeles(profil, operations)
+    catalogue = modeles(profil, operations, t=commun.t)
     perso = st.session_state.get("scenarios_perso", [])
     tous = {**catalogue, **{s.nom: s for s in perso}}
 
@@ -158,7 +159,8 @@ def afficher_scenarios(profil: str = "Particulier") -> None:
 
     resultats = comparer(retenus, operations,
                          float(solde_de_depart()),
-                         st.session_state.devise, _taux(), debut, horizon)
+                         st.session_state.devise, _taux(), debut, horizon,
+                         t=commun.t)
 
     base = resultats[0]
 
@@ -176,7 +178,7 @@ def afficher_scenarios(profil: str = "Particulier") -> None:
 
     for r in resultats:
         reference = r.nom == base.nom
-        niveau, phrase = r.verdict()
+        niveau, phrase = r.verdict(commun.t, commun.date_longue)
         couleur = {"bon": VERT, "attention": ORANGE, "alerte": ROUGE}[niveau]
 
         c1, c2, c3 = st.columns([3.2, 2, 2])

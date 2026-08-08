@@ -30,19 +30,9 @@ def _sans_accent(t: str) -> str:
 # LES HYPOTHÈSES
 # ===========================================================================
 
-GENRES = {
-    "varier":    "Faire varier des montants",
-    "supprimer": "Supprimer une rentrée ou une charge",
-    "decaler":   "Décaler des encaissements",
-    "ajouter":   "Ajouter une opération",
-    "solde":     "Partir d'une trésorerie différente",
-}
-
-PORTEES = {
-    "entrees": "les entrées d'argent",
-    "sorties": "les sorties d'argent",
-    "tout":    "toutes les opérations",
-}
+# Les cles sont stables ; le libelle lu vient toujours de la traduction.
+GENRES = ("varier", "supprimer", "decaler", "ajouter", "solde")
+PORTEES = ("entrees", "sorties", "tout")
 
 
 @dataclass
@@ -73,29 +63,40 @@ class Hypothese:
 
     # ---- Mise en mots --------------------------------------------------
 
-    def phrase(self) -> str:
+    def phrase(self, t=None) -> str:
+        """
+        Met l'hypothese en mots, dans la langue de lecture.
+
+        Le singulier et le pluriel sont deux cles distinctes : une cible
+        precise se dit au singulier (« Alpha SA disparait »), une portee
+        generique au pluriel (« les entrees d'argent disparaissent »).
+        """
+        t = t or _texte
+
         # Une cible est un nom propre : « Alpha SA » ne doit jamais devenir
         # « alpha sa ». On ne met la majuscule que sur les portées génériques.
         if self.cible:
             sur = f"« {self.cible} »"
         else:
-            libelle = PORTEES.get(self.portee, "")
+            libelle = t("por." + self.portee)
             sur = libelle[:1].upper() + libelle[1:]
 
+        montant = f"{abs(self.valeur):,.0f}".replace(",", "\u202f")
+
         if self.genre == "varier":
-            sens = "augmentent" if self.valeur > 0 else "baissent"
-            return f"{sur} {sens} de {abs(self.valeur):.0f} %"
+            cle = "ph.hausse" if self.valeur > 0 else "ph.baisse"
+            return t(cle, sur=sur, n=f"{abs(self.valeur):.0f}")
         if self.genre == "supprimer":
-            return f"{sur} {'disparaît' if self.cible else 'disparaissent'}"
+            return t("ph.supprimer_un" if self.cible else "ph.supprimer_pl",
+                     sur=sur)
         if self.genre == "decaler":
-            return (f"{sur} {'est encaissée' if self.cible else 'sont encaissées'} "
-                    f"{abs(self.valeur):.0f} jours plus tard")
+            return t("ph.decaler_un" if self.cible else "ph.decaler_pl",
+                     sur=sur, n=f"{abs(self.valeur):.0f}")
         if self.genre == "ajouter":
-            sens = "Une rentrée" if self.valeur > 0 else "Une charge"
-            return (f"{sens} de {abs(self.valeur):,.0f} — « {self.libelle_ajout} » — "
-                    f"s'ajoute").replace(",", " ")
+            cle = "ph.ajout_entree" if self.valeur > 0 else "ph.ajout_sortie"
+            return t(cle, montant=montant, libelle=self.libelle_ajout)
         if self.genre == "solde":
-            return f"La trésorerie de départ est de {self.valeur:,.0f}".replace(",", " ")
+            return t("ph.solde", montant=f"{self.valeur:,.0f}".replace(",", "\u202f"))
         return self.genre
 
     # ---- Application ---------------------------------------------------
@@ -152,8 +153,10 @@ class Scenario:
             ops, s = h.appliquer(ops, s)
         return ops, s
 
-    def resume(self) -> str:
-        return " · ".join(h.phrase() for h in self.hypotheses) or "aucune hypothèse"
+    def resume(self, t=None) -> str:
+        t = t or _texte
+        return (" · ".join(h.phrase(t) for h in self.hypotheses)
+                or t("ph.aucune"))
 
 
 @dataclass
@@ -176,19 +179,27 @@ class Resultat:
     def tient(self) -> bool:
         return self.premier_jour_negatif is None
 
-    def verdict(self) -> tuple[str, str]:
-        """Une phrase qui dit s'il faut s'inquiéter, et pourquoi."""
+    def verdict(self, t=None, date_lisible=None) -> tuple[str, str]:
+        """
+        Une phrase qui dit s'il faut s'inquiéter, et pourquoi.
+
+        `date_lisible` ecrit la date selon la langue. Par defaut on garde le
+        format francais : ce module ne connait pas la langue de lecture,
+        c'est l'interface qui la lui donne.
+        """
+        t = t or _texte
+        ecrire = date_lisible or (lambda j: j.strftime("%d/%m/%Y"))
+
         if self.tient:
-            return ("bon", f"Vous tenez. Point bas : "
-                           f"{self._n(self.solde_minimum)} le "
-                           f"{self.date_solde_min.strftime('%d/%m/%Y')}.")
+            return ("bon", t("vd.tient", montant=self._n(self.solde_minimum),
+                             date=ecrire(self.date_solde_min)))
         if self.jours_avant_negatif is not None and self.jours_avant_negatif <= 30:
-            return ("alerte", f"Vous êtes à découvert dès le "
-                              f"{self.premier_jour_negatif.strftime('%d/%m/%Y')}, "
-                              f"soit dans {self.jours_avant_negatif} jours.")
-        return ("attention", f"Vous passez sous zéro le "
-                             f"{self.premier_jour_negatif.strftime('%d/%m/%Y')}, "
-                             f"dans {self.jours_avant_negatif} jours.")
+            return ("alerte", t("vd.alerte",
+                                date=ecrire(self.premier_jour_negatif),
+                                n=self.jours_avant_negatif))
+        return ("attention", t("vd.attention",
+                               date=ecrire(self.premier_jour_negatif),
+                               n=self.jours_avant_negatif))
 
     def _n(self, v) -> str:
         """Un verdict se lit seul, hors contexte : il doit porter sa devise."""
@@ -201,9 +212,17 @@ class Resultat:
 
 def projeter_scenario(scenario: Scenario, operations: list[dict], solde: float,
                       devise: str, taux: dict, debut: date,
-                      nb_jours: int = 180) -> Resultat:
-    """Applique le scénario, reprojette, et renvoie de quoi comparer."""
+                      nb_jours: int = 180, traduire=None) -> Resultat:
+    """
+    Applique le scénario, reprojette, et renvoie de quoi comparer.
+
+    Le parametre s'appelle `traduire` et non `t` : `t` designe deja la
+    tresorerie dans le corps de cette fonction, et la collision avait
+    casse la projection.
+    """
     from moteur_tresorerie import Operation, TauxChange
+
+    traduire = traduire or _texte
 
     ops, s = scenario.appliquer(operations, solde)
 
@@ -232,26 +251,39 @@ def projeter_scenario(scenario: Scenario, operations: list[dict], solde: float,
         premier_jour_negatif=synthese["premier_jour_negatif"],
         jours_avant_negatif=synthese["jours_avant_negatif"],
         courbe=[(j.jour, float(j.solde)) for j in jours],
-        resume=scenario.resume(),
+        resume=scenario.resume(traduire),
         devise=devise,
     )
 
 
+def _texte(cle: str, **variables) -> str:
+    """
+    Repli quand aucune fonction de traduction n'est fournie.
+
+    La signature accepte les memes variables que `commun.t` : un module
+    appele hors interface — un test, un export — doit obtenir la meme
+    phrase, en francais.
+    """
+    from langues import traduire
+    return traduire(cle, "fr", **variables)
+
+
 def comparer(scenarios: list[Scenario], operations: list[dict], solde: float,
              devise: str, taux: dict, debut: date,
-             nb_jours: int = 180) -> list[Resultat]:
+             nb_jours: int = 180, t=None) -> list[Resultat]:
     """
     Projette tous les scénarios, le cas de base en tête.
 
     Les écarts sont mesurés par rapport au cas de base : c'est ce chiffre
     qui répond vraiment à la question « combien ça me coûte ? ».
     """
-    base = Scenario("Situation actuelle", [], "Vos opérations, sans modification")
+    t = t or _texte
+    base = Scenario(t("sc.base_nom"), [], t("sc.base_resume"))
     resultats = [projeter_scenario(base, operations, solde, devise, taux,
-                                   debut, nb_jours)]
+                                   debut, nb_jours, t)]
     for s in scenarios:
         resultats.append(projeter_scenario(s, operations, solde, devise, taux,
-                                           debut, nb_jours))
+                                           debut, nb_jours, t))
 
     reference = resultats[0]
     for r in resultats[1:]:
@@ -265,94 +297,82 @@ def comparer(scenarios: list[Scenario], operations: list[dict], solde: float,
 # ===========================================================================
 
 def modeles(profil: str = "Particulier",
-            operations: list[dict] | None = None) -> dict[str, Scenario]:
+            operations: list[dict] | None = None, t=None) -> dict[str, Scenario]:
     """
     Des scénarios prêts à l'emploi, adaptés au profil.
 
     Quand c'est possible, le modèle vise l'opération réellement concernée :
     « je perds mon plus gros client » cible le plus gros encaissement
     effectivement présent dans les données, pas un client théorique.
+
+    `t` est la fonction de traduction. Elle est passée en argument plutôt
+    qu'importée : ce module reste pur, sans dépendance à l'interface, et
+    les tests peuvent l'appeler dans n'importe quelle langue.
     """
+    t = t or _texte
     operations = operations or []
     entrees = sorted((o for o in operations if float(o["montant"]) > 0),
                      key=lambda o: -float(o["montant"]))
     plus_grosse_entree = entrees[0]["libelle"] if entrees else ""
 
+    def scenario(cle_nom: str, hypotheses, cle_texte: str) -> tuple[str, Scenario]:
+        nom = t(cle_nom)
+        return nom, Scenario(nom, hypotheses, t(cle_texte))
+
     if profil == "Entreprise":
-        catalogue = {
-            "Je perds mon plus gros client": Scenario(
-                "Je perds mon plus gros client",
-                [Hypothese("supprimer", cible=plus_grosse_entree, portee="entrees")]
-                if plus_grosse_entree else
-                [Hypothese("varier", -35, portee="entrees")],
-                "La question à se poser avant que le client ne la pose."),
-
-            "Mes clients paient 30 jours plus tard": Scenario(
-                "Mes clients paient 30 jours plus tard",
-                [Hypothese("decaler", 30, portee="entrees")],
-                "Le retard de paiement ne change pas votre résultat, "
-                "seulement votre capacité à payer vos propres échéances."),
-
-            "Mon activité recule de 20 %": Scenario(
-                "Mon activité recule de 20 %",
-                [Hypothese("varier", -20, portee="entrees")],
-                "Une baisse de commandes, un marché perdu, une saison creuse."),
-
-            "Mes charges augmentent de 10 %": Scenario(
-                "Mes charges augmentent de 10 %",
-                [Hypothese("varier", 10, portee="sorties")],
-                "Énergie, loyers, matières premières, salaires."),
-
-            "J'embauche": Scenario(
-                "J'embauche",
-                [Hypothese("ajouter", -3000, libelle_ajout="Nouveau salaire",
-                           recurrence_ajout=Recurrence.MENSUELLE)],
-                "Ajustez le montant à votre marché. Le poste est prélevé "
-                "chaque mois, indéfiniment."),
-
-            "Le pire des cas": Scenario(
-                "Le pire des cas",
-                [Hypothese("varier", -25, portee="entrees"),
-                 Hypothese("decaler", 30, portee="entrees"),
-                 Hypothese("varier", 10, portee="sorties")],
-                "Trois coups en même temps. Si vous tenez ici, "
-                "vous tenez partout."),
-        }
+        entrees_du_catalogue = [
+            scenario("mod.ent.client_nom",
+                     [Hypothese("supprimer", cible=plus_grosse_entree,
+                                portee="entrees")]
+                     if plus_grosse_entree else
+                     [Hypothese("varier", -35, portee="entrees")],
+                     "mod.ent.client_txt"),
+            scenario("mod.ent.retard_nom",
+                     [Hypothese("decaler", 30, portee="entrees")],
+                     "mod.ent.retard_txt"),
+            scenario("mod.ent.recul_nom",
+                     [Hypothese("varier", -20, portee="entrees")],
+                     "mod.ent.recul_txt"),
+            scenario("mod.ent.charges_nom",
+                     [Hypothese("varier", 10, portee="sorties")],
+                     "mod.ent.charges_txt"),
+            scenario("mod.ent.embauche_nom",
+                     [Hypothese("ajouter", -3000,
+                                libelle_ajout=t("mod.ent.salaire"),
+                                recurrence_ajout=Recurrence.MENSUELLE)],
+                     "mod.ent.embauche_txt"),
+            scenario("mod.pire_nom",
+                     [Hypothese("varier", -25, portee="entrees"),
+                      Hypothese("decaler", 30, portee="entrees"),
+                      Hypothese("varier", 10, portee="sorties")],
+                     "mod.ent.pire_txt"),
+        ]
     else:
-        catalogue = {
-            "Je perds mon revenu principal": Scenario(
-                "Je perds mon revenu principal",
-                [Hypothese("supprimer", cible=plus_grosse_entree, portee="entrees")]
-                if plus_grosse_entree else
-                [Hypothese("varier", -100, portee="entrees")],
-                "Combien de temps tenez-vous sans rentrée principale ?"),
+        entrees_du_catalogue = [
+            scenario("mod.part.revenu_nom",
+                     [Hypothese("supprimer", cible=plus_grosse_entree,
+                                portee="entrees")]
+                     if plus_grosse_entree else
+                     [Hypothese("varier", -100, portee="entrees")],
+                     "mod.part.revenu_txt"),
+            scenario("mod.part.baisse_nom",
+                     [Hypothese("varier", -20, portee="entrees")],
+                     "mod.part.baisse_txt"),
+            scenario("mod.part.vie_nom",
+                     [Hypothese("varier", 10, portee="sorties")],
+                     "mod.part.vie_txt"),
+            scenario("mod.part.imprevu_nom",
+                     [Hypothese("ajouter", -2000,
+                                libelle_ajout=t("mod.part.imprevu"),
+                                recurrence_ajout=Recurrence.PONCTUELLE)],
+                     "mod.part.imprevu_txt"),
+            scenario("mod.part.economie_nom",
+                     [Hypothese("varier", -15, portee="sorties")],
+                     "mod.part.economie_txt"),
+            scenario("mod.pire_nom",
+                     [Hypothese("varier", -25, portee="entrees"),
+                      Hypothese("varier", 10, portee="sorties")],
+                     "mod.part.pire_txt"),
+        ]
 
-            "Mes revenus baissent de 20 %": Scenario(
-                "Mes revenus baissent de 20 %",
-                [Hypothese("varier", -20, portee="entrees")],
-                "Chômage partiel, fin de prime, baisse d'activité."),
-
-            "Le coût de la vie augmente de 10 %": Scenario(
-                "Le coût de la vie augmente de 10 %",
-                [Hypothese("varier", 10, portee="sorties")],
-                "Énergie, alimentation, loyer, assurances."),
-
-            "Une dépense imprévue de 2 000": Scenario(
-                "Une dépense imprévue de 2 000",
-                [Hypothese("ajouter", -2000, libelle_ajout="Imprévu",
-                           recurrence_ajout=Recurrence.PONCTUELLE)],
-                "Voiture, santé, réparation. Ajustez le montant."),
-
-            "Je réduis mes dépenses variables de 15 %": Scenario(
-                "Je réduis mes dépenses variables de 15 %",
-                [Hypothese("varier", -15, portee="sorties")],
-                "L'effort d'économie que vous envisagez, chiffré."),
-
-            "Le pire des cas": Scenario(
-                "Le pire des cas",
-                [Hypothese("varier", -25, portee="entrees"),
-                 Hypothese("varier", 10, portee="sorties")],
-                "Moins de revenus et plus de charges, en même temps."),
-        }
-
-    return catalogue
+    return dict(entrees_du_catalogue)

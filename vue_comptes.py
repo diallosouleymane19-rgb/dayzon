@@ -177,57 +177,57 @@ def panneau_taux() -> None:
 
     titre = "💱 " + commun.t("taux.titre")
     if manquants:
-        titre += f" — {len(manquants)} manquant{'s' if len(manquants) > 1 else ''}"
+        titre += " — " + commun.t("taux.n_manquants", n=len(manquants))
 
     with st.expander(titre, expanded=bool(manquants)):
         st.caption(commun.t("taux.explication"))
 
         if manquants:
-            st.warning(f"Taux à renseigner : {', '.join(manquants)}")
+            st.warning(commun.t("taux.a_renseigner", devises=", ".join(manquants)))
 
         for devise in besoins:
             t = table.trouver(devise, reference)
             if t is None:
-                st.markdown(f"**{devise} → {reference}** · _à renseigner_")
+                st.markdown(f"**{devise} → {reference}** · {commun.t('taux.vide')}")
                 continue
             age = t.anciennete()
             marque = "⚠️ " if age > JOURS_AVANT_ALERTE_TAUX else ""
             st.markdown(
                 f"<div style='font-size:11px'>{marque}<b>1 {t.base}</b> = "
                 f"{t.valeur.normalize():f} {t.contre}<br>"
-                f"<span style='color:#888'>{t.observe_le.strftime('%d/%m/%Y')} · "
+                f"<span style='color:#888'>{commun.date_longue(t.observe_le)} · "
                 f"{t.source}</span></div>", unsafe_allow_html=True)
 
         st.divider()
         with st.form("ajout_taux", clear_on_submit=True):
-            st.caption("Corriger ou ajouter un taux")
+            st.caption(commun.t("taux.corriger"))
             c1, c2 = st.columns(2)
             with c1:
-                base = st.selectbox("De", commun.DEVISES_PROPOSEES,
+                base = st.selectbox(commun.t("taux.de"), commun.DEVISES_PROPOSEES,
                                     index=commun.DEVISES_PROPOSEES.index(
                                         manquants[0]) if manquants else 1)
             with c2:
                 contre = st.selectbox(
-                    "Vers", commun.DEVISES_PROPOSEES,
+                    commun.t("taux.vers"), commun.DEVISES_PROPOSEES,
                     index=commun.DEVISES_PROPOSEES.index(reference)
                     if reference in commun.DEVISES_PROPOSEES else 0)
-            valeur = st.number_input("1 unité vaut", value=1.0, step=0.01,
+            valeur = st.number_input(commun.t("taux.une_unite"), value=1.0, step=0.01,
                                      format="%.6f")
             c3, c4 = st.columns(2)
             with c3:
                 observe = st.date_input(commun.t("taux.constate_le"), value=date.today())
             with c4:
-                source = st.text_input(commun.t("taux.source"), value="saisie manuelle",
-                                       help="BCE, votre banque, un site de "
-                                            "change… pour pouvoir le justifier.")
+                source = st.text_input(commun.t("taux.source"),
+                                       value=commun.t("taux.saisie"),
+                                       help=commun.t("taux.aide_source"))
 
-            if st.form_submit_button("Enregistrer ce taux",
+            if st.form_submit_button(commun.t("taux.enregistrer"),
                                      use_container_width=True):
                 try:
                     table.ajouter(Taux(base=base, contre=contre,
                                        valeur=Decimal(str(valeur)),
                                        observe_le=observe,
-                                       source=source or "saisie manuelle"))
+                                       source=source or commun.t("taux.saisie")))
                     commun.enregistrer()
                     st.rerun()
                 except ErreurArgent as err:
@@ -284,7 +284,7 @@ def _emporter_et_reprendre() -> None:
                                         key="btn_reprise"):
         try:
             donnees = commun.importer_octets(depose.getvalue())
-            st.success(f"Repris : {donnees.resume()}.")
+            st.success(commun.t("sauv.repris", resume=donnees.resume()))
             st.rerun()
         except sv.ErreurSauvegarde as err:
             st.error(str(err))
@@ -295,16 +295,18 @@ def _sauvegarde_locale() -> None:
     st.session_state.sauvegarde_auto = st.toggle(
         commun.t("sauv.auto"),
         value=st.session_state.sauvegarde_auto,
-        help="Vos données restent sur cet ordinateur. Rien n'est envoyé.")
+        help=commun.t("sauv.aide_local"))
 
     infos = sv.informations()
     if infos:
-        st.caption(f"Dernier enregistrement : "
-                   f"{infos['modifie_le'].strftime('%d/%m/%Y à %H:%M')} "
-                   f"· {infos['taille_ko']} Ko")
-        st.caption(f"Emplacement : `{infos['chemin']}`")
+        st.caption(commun.t(
+            "sauv.dernier",
+            date=f"{commun.date_longue(infos['modifie_le'])} "
+                 f"{infos['modifie_le'].strftime('%H:%M')}",
+            taille=infos["taille_ko"]))
+        st.caption(commun.t("sauv.emplacement", chemin=infos["chemin"]))
     else:
-        st.caption("Aucune sauvegarde pour le moment.")
+        st.caption(commun.t("sauv.aucune"))
 
     erreur = st.session_state.get("erreur_sauvegarde")
     if erreur:
@@ -314,24 +316,23 @@ def _sauvegarde_locale() -> None:
     if c1.button(commun.t("compte.enregistrer"), use_container_width=True):
         try:
             commun.enregistrer(force=True)
-            st.success("Enregistré.")
+            st.success(commun.t("sauv.enregistre"))
         except sv.ErreurSauvegarde as err:
             st.error(str(err))
 
     if infos and c2.button(commun.t("sauv.effacer"), use_container_width=True,
-                           help="Supprime la sauvegarde de cet ordinateur."):
+                           help=commun.t("sauv.aide_effacer")):
         st.session_state.confirmer_effacement = True
 
     if st.session_state.get("confirmer_effacement"):
-        st.warning("**Effacer définitivement la sauvegarde ?** "
-                   "Vos comptes et opérations en cours restent affichés "
-                   "jusqu'à la fermeture.")
+        st.warning(commun.t("sauv.confirmer"))
         d1, d2 = st.columns(2)
-        if d1.button("Oui, effacer", type="primary", use_container_width=True):
+        if d1.button(commun.t("sauv.oui_effacer"), type="primary",
+                     use_container_width=True):
             sv.supprimer()
             st.session_state.confirmer_effacement = False
             st.session_state.sauvegarde_auto = False
             st.rerun()
-        if d2.button("Annuler", use_container_width=True):
+        if d2.button(commun.t("sauv.annuler"), use_container_width=True):
             st.session_state.confirmer_effacement = False
             st.rerun()
