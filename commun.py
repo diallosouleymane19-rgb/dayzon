@@ -287,6 +287,19 @@ def formater_date(jour) -> str:
     return lg.formater_date(jour, langue())
 
 
+def afficher(montant) -> str:
+    """
+    Un objet `Montant` écrit selon la langue de lecture.
+
+    `Montant.formater()` applique toujours la typographie française : le
+    module `argent` est volontairement pur et ne connaît pas la langue.
+    C'est ici, et seulement ici, que la présentation devient localisée.
+    Toute vue qui appelle `montant.formater()` directement affichera un
+    montant français à un lecteur anglophone.
+    """
+    return lg.formater_montant(montant.valeur, montant.devise, langue())
+
+
 def date_longue(jour) -> str:
     """Date complète : 07/08/2026, 07 Aug 2026, 2026年08月07日."""
     return lg.formater_date(jour, langue())

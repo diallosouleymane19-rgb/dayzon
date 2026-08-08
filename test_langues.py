@@ -226,7 +226,11 @@ for code in ["en", "es", "zh"]:
 fr = json.loads((Path("traductions") / "fr.json").read_text(encoding="utf-8"))
 for code in ["en", "es", "zh"]:
     autre = json.loads((Path("traductions") / f"{code}.json").read_text(encoding="utf-8"))
-    identiques = [c for c in fr if fr[c] == autre.get(c) and len(fr[c]) > 12]
+    # Les textes a variables sont ecartes : « **{montant}** en {devise} »
+    # s'ecrit pareil en francais et en espagnol sans que ce soit un oubli.
+    identiques = [c for c in fr
+                  if fr[c] == autre.get(c) and len(fr[c]) > 12
+                  and "{" not in fr[c]]
     verifier(f"{code} : aucun texte laisse en français", identiques, [])
 
 

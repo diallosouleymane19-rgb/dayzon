@@ -247,23 +247,23 @@ else:
             portefeuille = commun.portefeuille()
             if portefeuille.vide:
                 from comptes import Compte
-                portefeuille.ajouter(Compte("Compte courant", "EUR",
+                portefeuille.ajouter(Compte(commun.t("ex.compte"), "EUR",
                                             Decimal("2500")))
             st.session_state.operations = [
-                {"libelle": "Salaire", "montant": 2800,
+                {"libelle": commun.t("ex.salaire"), "montant": 2800,
                  "date": j.replace(day=min(28, j.day)), "devise": "EUR",
                  "recurrence": Recurrence.MENSUELLE, "certaine": True},
-                {"libelle": "Loyer", "montant": -950, "date": j.replace(day=5),
+                {"libelle": commun.t("ex.loyer"), "montant": -950, "date": j.replace(day=5),
                  "devise": "EUR", "recurrence": Recurrence.MENSUELLE, "certaine": True},
-                {"libelle": "Crédit auto", "montant": -320, "date": j.replace(day=10),
+                {"libelle": commun.t("ex.credit"), "montant": -320, "date": j.replace(day=10),
                  "devise": "EUR", "recurrence": Recurrence.MENSUELLE, "certaine": True},
-                {"libelle": "Courses", "montant": -120, "date": j,
+                {"libelle": commun.t("ex.courses"), "montant": -120, "date": j,
                  "devise": "EUR", "recurrence": Recurrence.HEBDOMADAIRE,
                  "certaine": True},
-                {"libelle": "Assurance", "montant": -680,
+                {"libelle": commun.t("ex.assurance"), "montant": -680,
                  "date": j + timedelta(days=25), "devise": "EUR",
                  "recurrence": Recurrence.ANNUELLE, "certaine": True},
-                {"libelle": "Mission freelance", "montant": 1500,
+                {"libelle": commun.t("ex.mission"), "montant": 1500,
                  "date": j + timedelta(days=40), "devise": "USD",
                  "recurrence": Recurrence.PONCTUELLE, "certaine": False},
             ]

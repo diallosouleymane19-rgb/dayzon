@@ -59,8 +59,10 @@ for code in ("en", "es", "zh"):
     verifier(f"{code} : aucune cle manquante ({lg.couverture(code)} %)",
              not lg.cles_manquantes(code))
     autre = json.loads(Path(f"traductions/{code}.json").read_text(encoding="utf-8"))
+    # Les textes a variables sont ecartes : « **{montant}** en {devise} »
+    # s'ecrit pareil en francais et en espagnol sans que ce soit un oubli.
     recopiees = [k for k, v in FR.items()
-                 if len(v) > 14 and autre.get(k) == v]
+                 if len(v) > 14 and "{" not in v and autre.get(k) == v]
     verifier(f"{code} : aucune valeur francaise recopiee telle quelle",
              not recopiees)
 
@@ -106,6 +108,38 @@ verifier("les scenarios comparent aussi une valeur stable",
 import commun                                                  # noqa: E402
 verifier("les cles de recurrence sont sans accent ni majuscule",
          all(k.islower() and k.isascii() for k in commun.RECURRENCES))
+
+
+print("\n4. Les montants suivent la langue, pas le code")
+
+# Defaut releve en production : le solde d'un compte s'affichait « 2 500,00 € »
+# a un lecteur anglophone. `Montant.formater()` applique toujours la
+# typographie francaise — c'est voulu, le module `argent` ignore la langue —
+# donc aucune vue ne doit l'appeler directement.
+for chemin in sorted(Path(".").glob("vue_*.py")) + [Path("app_tresorerie.py")]:
+    contenu = chemin.read_text(encoding="utf-8")
+    verifier(f"{chemin.name} n'appelle pas .formater() directement",
+             ".formater()" not in contenu)
+
+from decimal import Decimal                                    # noqa: E402
+from argent import Montant                                     # noqa: E402
+
+mille = Montant(Decimal("1234.56"), "EUR")
+attendus = {
+    "fr": "1 234,56 €",
+    "en": "€1,234.56",
+    "es": "1.234,56 €",
+    "zh": "€1,234.56",
+}
+for code, attendu in attendus.items():
+    obtenu = lg.formater_montant(mille.valeur, "EUR", code)
+    verifier(f"{code} : 1234.56 EUR s'ecrit {attendu!r}", obtenu == attendu)
+
+# Le yen n'a pas de centimes, quelle que soit la langue de lecture.
+for code in ("fr", "en", "es", "zh"):
+    yen = lg.formater_montant(Decimal("1234"), "JPY", code)
+    verifier(f"{code} : le yen reste sans decimales ({yen})", "," not in yen[-4:]
+             or "." not in yen)
 
 
 print("\n" + "=" * 62)

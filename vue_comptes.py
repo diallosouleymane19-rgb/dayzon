@@ -54,7 +54,7 @@ def panneau_comptes(entreprise: bool) -> None:
                 f"{'' if c.actif else ' · ' + commun.t('comptes.clos')}</span><br>"
                 f"<span style='font-size:13px;font-weight:600;color:"
                 f"{ROUGE if c.solde < 0 else '#333'}'>"
-                f"{c.montant.formater()}</span></div>",
+                f"{commun.afficher(c.montant)}</span></div>",
                 unsafe_allow_html=True)
             if l2.button("✕", key=f"del_cpt_{c.identifiant}",
                          help=commun.t("comptes.retirer", nom=c.nom)):
@@ -116,12 +116,11 @@ def _total_consolide(p) -> None:
     cons = commun.consolidation()
 
     if cons is None:
-        st.warning(
-            f"Impossible de calculer un total en {commun.devise_reference()} : "
-            f"il manque un taux. Renseignez-le ci-dessous, ou choisissez une "
-            f"devise de référence présente dans vos comptes.")
+        st.warning(commun.t("comptes.total_impossible",
+                            devise=commun.devise_reference()))
         partiel = p.solde_devise(commun.devise_reference())
-        st.caption(f"Affiché sans conversion : {partiel.formater()}")
+        st.caption(commun.t("comptes.sans_conversion",
+                            montant=commun.afficher(partiel)))
         return
 
     etiquette_total = commun.t("comptes.total")
@@ -132,11 +131,10 @@ def _total_consolide(p) -> None:
         f"{etiquette_total}</div>"
         f"<div style='font-size:21px;font-weight:700;color:"
         f"{ROUGE if cons.total.negatif else '#123e53'}'>"
-        f"{cons.total.formater()}</div>"
-        f"<div style='font-size:10px;color:#888'>{cons.comptes_retenus} compte"
-        f"{'s' if cons.comptes_retenus > 1 else ''} · "
-        f"{len(cons.par_devise)} devise"
-        f"{'s' if len(cons.par_devise) > 1 else ''}</div></div>",
+        f"{commun.afficher(cons.total)}</div>"
+        f"<div style='font-size:10px;color:#888'>"
+        f"{commun.t('comptes.n_comptes', c=cons.comptes_retenus, d=len(cons.par_devise))}"
+        f"</div></div>",
         unsafe_allow_html=True)
 
     if not cons.multidevise:
@@ -146,7 +144,9 @@ def _total_consolide(p) -> None:
     # daté et sourcé, au lieu d'un total converti sans justification.
     with st.expander(commun.t("comptes.origine_total")):
         for devise, sous_total in cons.par_devise.items():
-            st.caption(f"**{sous_total.formater()}** en {nom_devise(devise)}")
+            st.caption(commun.t("comptes.en_devise",
+                                montant=commun.afficher(sous_total),
+                                devise=nom_devise(devise)))
         st.divider()
         st.caption("**" + commun.t("taux.employes") + "**")
         for t in cons.taux_employes:
