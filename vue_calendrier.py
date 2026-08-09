@@ -15,6 +15,7 @@ import pandas as pd
 import streamlit as st
 
 import commun
+import theme
 
 from commun import (MOIS_FR, construire_tresorerie, formater,
                     solde_de_depart)
@@ -49,33 +50,46 @@ def afficher_calendrier(cle: str = "part", mots: dict | None = None) -> None:
     jours = t.projeter(debut, horizon, inclure_incertain=inclure)
     synth = t.synthese(debut, horizon)
 
-    # --- Indicateurs ---
+    # --- Le chiffre de tete ---
+    # Un seul montant domine l'ecran : celui que l'utilisateur est venu
+    # chercher. Le reste devient secondaire, y compris le solde du jour.
+    theme.hero(commun.t("cal.dans_x_jours", n=horizon),
+               formater(synth["solde_final"]),
+               commun.t("cal.le_date",
+                        date=commun.date_longue(synth["date_solde_min"]))
+               + " · " + titre_bas + " " + formater(synth["solde_minimum"]))
+
     k1, k2, k3, k4 = st.columns(4)
-    k1.metric(mots.get("solde_actuel", commun.t("cal.solde_aujourdhui")),
+    theme.kpi(k1, mots.get("solde_actuel", commun.t("cal.solde_aujourdhui")),
               formater(solde_de_depart()))
-    k2.metric(commun.t("cal.dans_x_jours", n=horizon), formater(synth["solde_final"]),
-              delta=formater(synth["variation_nette"]))
-    k3.metric(titre_bas, formater(synth["solde_minimum"]),
-              delta=commun.t("cal.le_date",
-                             date=commun.date_courte(synth["date_solde_min"])),
-              delta_color="off")
+    theme.kpi(k2, commun.t("cal.variation"), formater(synth["variation_nette"]),
+              couleur=theme.couleur_montant(synth["variation_nette"]))
+    theme.kpi(k3, titre_bas, formater(synth["solde_minimum"]),
+              commun.t("cal.le_date",
+                       date=commun.date_courte(synth["date_solde_min"])),
+              couleur=theme.couleur_montant(synth["solde_minimum"]))
 
     if synth["alerte"]:
-        k4.metric("⚠️ " + commun.t("cal.decouvert_le"),
+        theme.kpi(k4, commun.t("cal.decouvert_le"),
                   commun.date_courte(synth["premier_jour_negatif"]),
-                  delta=commun.t("cal.jours", n=synth["jours_avant_negatif"]),
-                  delta_color="inverse")
-        st.error(commun.t("cal.sous_zero",
-                          date=commun.date_longue(synth["premier_jour_negatif"]),
-                          n=synth["jours_avant_negatif"], bas=titre_bas,
-                          montant=formater(synth["solde_minimum"])))
+                  commun.t("cal.jours", n=synth["jours_avant_negatif"]),
+                  couleur=theme.ROUGE)
+        st.write("")
+        theme.message("alerte", commun.t("cal.decouvert_le") + " "
+                      + commun.date_longue(synth["premier_jour_negatif"]),
+                      commun.t("cal.sous_zero",
+                               date=commun.date_longue(synth["premier_jour_negatif"]),
+                               n=synth["jours_avant_negatif"], bas=titre_bas,
+                               montant=formater(synth["solde_minimum"])))
     else:
-        k4.metric(commun.t("cal.situation"), commun.t("cal.aucun_decouvert"),
-                  delta=commun.t("cal.sur_periode"),
-                  delta_color="off")
-        st.success(commun.t("cal.pas_decouvert", n=horizon, bas=titre_bas,
-                            montant=formater(synth["solde_minimum"]),
-                            date=commun.date_longue(synth["date_solde_min"])))
+        theme.kpi(k4, commun.t("cal.situation"),
+                  commun.t("cal.aucun_decouvert"),
+                  commun.t("cal.sur_periode"), couleur=theme.VERT)
+        st.write("")
+        theme.message("bon", commun.t("cal.aucun_decouvert"),
+                      commun.t("cal.pas_decouvert", n=horizon, bas=titre_bas,
+                               montant=formater(synth["solde_minimum"]),
+                               date=commun.date_longue(synth["date_solde_min"])))
 
     # --- Courbe ---
     st.subheader(commun.t("cal.evolution"))
@@ -92,31 +106,32 @@ def afficher_calendrier(cle: str = "part", mots: dict | None = None) -> None:
         st.markdown(f"**{commun.nom_mois(mois)} {annee}**")
         entete = st.columns(7)
         for i, nom in enumerate(commun.jours_semaine()):
-            entete[i].caption(nom)
+            entete[i].markdown(f"<div class='dz-dow'>{nom}</div>",
+                               unsafe_allow_html=True)
 
         for semaine in calendar.Calendar(firstweekday=commun.premier_jour()).monthdatescalendar(annee, mois):
             cols = st.columns(7)
             for i, jour in enumerate(semaine):
                 with cols[i]:
                     if jour.month != mois:
-                        st.caption(" ")
+                        st.markdown("<div class='dz-jour vide'></div>",
+                                    unsafe_allow_html=True)
                         continue
                     info = par_jour.get(jour)
                     if info is None:
                         st.caption(f"{jour.day}")
                         continue
                     solde = float(info.solde)
-                    couleur = ("#c0392b" if solde < 0
-                               else "#e67e22" if solde < 500 else "#27ae60")
+                    couleur = (theme.ROUGE if solde < 0
+                               else theme.AMBRE if solde < 500 else theme.VERT)
                     mouvement = ""
                     if info.operations:
-                        mouvement = (f"<div style='font-size:10px;color:#666'>"
+                        mouvement = (f"<div class='m'>"
                                      f"{float(info.variation):+,.0f}</div>")
                     st.markdown(
-                        f"<div style='border:1px solid #e0e0e0;border-radius:6px;"
-                        f"padding:4px;min-height:58px'>"
-                        f"<div style='font-size:11px;color:#888'>{jour.day}</div>"
-                        f"<div style='font-size:13px;font-weight:600;color:{couleur}'>"
+                        f"<div class='dz-jour'>"
+                        f"<div class='d'>{jour.day}</div>"
+                        f"<div class='s' style='color:{couleur}'>"
                         f"{solde:,.0f}</div>{mouvement}</div>",
                         unsafe_allow_html=True)
         st.write("")

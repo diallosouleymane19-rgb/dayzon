@@ -30,6 +30,10 @@ st.set_page_config(page_title="Dayzon — Gestion financière",
 import pwa
 pwa.activer()
 
+# Apparence commune : palette, cartes, adaptation téléphone.
+import theme
+theme.appliquer()
+
 # Prépare la session et recharge la sauvegarde si elle existe.
 commun.initialiser()
 
@@ -323,8 +327,10 @@ else:
             st.divider()
             st.subheader(commun.t("ana.ce_que_ca_veut"))
             for niveau, texte in syn.messages():
-                {"alerte": st.error, "attention": st.warning,
-                 "bon": st.success}.get(niveau, st.info)(texte)
+                # Le premier segment sert de titre : les messages du moteur
+                # sont écrits « Constat. Explication. »
+                titre, _, suite = texte.partition(". ")
+                theme.message(niveau, titre + ("." if suite else ""), suite)
 
             st.divider()
             col_g, col_d = st.columns([3, 2])

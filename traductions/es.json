@@ -79,6 +79,7 @@
   "cal.sous_zero": "**Su saldo cae por debajo de cero el {date}**, dentro de {n} días. {bas}: {montant}.",
   "cal.sur_periode": "en el período",
   "cal.titre": "Calendario",
+  "cal.variation": "Variación neta",
   "col.categorie": "Categoría",
   "col.charge_fixe": "Gasto fijo",
   "col.date": "Fecha",

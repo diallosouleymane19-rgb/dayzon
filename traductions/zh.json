@@ -79,6 +79,7 @@
   "cal.sous_zero": "**您的余额将于 {date} 跌破零**，即 {n} 天后。{bas}：{montant}。",
   "cal.sur_periode": "期间内",
   "cal.titre": "日历",
+  "cal.variation": "净变动",
   "col.categorie": "类别",
   "col.charge_fixe": "固定支出",
   "col.date": "日期",

@@ -79,6 +79,7 @@
   "cal.sous_zero": "**Votre solde passe sous zéro le {date}**, soit dans {n} jours. {bas} : {montant}.",
   "cal.sur_periode": "sur la période",
   "cal.titre": "Calendrier",
+  "cal.variation": "Variation nette",
   "col.categorie": "Catégorie",
   "col.charge_fixe": "Charge fixe",
   "col.date": "Date",

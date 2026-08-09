@@ -79,6 +79,7 @@
   "cal.sous_zero": "**Your balance goes below zero on {date}**, in {n} days. {bas}: {montant}.",
   "cal.sur_periode": "over the period",
   "cal.titre": "Calendar",
+  "cal.variation": "Net change",
   "col.categorie": "Category",
   "col.charge_fixe": "Fixed cost",
   "col.date": "Date",

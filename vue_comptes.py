@@ -21,6 +21,7 @@ import streamlit as st
 
 import argent
 import commun
+import theme
 import sauvegarde as sv
 from argent import ErreurArgent, Montant, Taux, nom_devise
 from comptes import Compte, ErreurCompte
@@ -123,19 +124,12 @@ def _total_consolide(p) -> None:
                             montant=commun.afficher(partiel)))
         return
 
-    etiquette_total = commun.t("comptes.total")
-    st.markdown(
-        f"<div style='background:#f4f7f8;border-radius:10px;padding:10px 12px;"
-        f"margin-top:6px'>"
-        f"<div style='font-size:10px;color:#777;letter-spacing:.4px'>"
-        f"{etiquette_total}</div>"
-        f"<div style='font-size:21px;font-weight:700;color:"
-        f"{ROUGE if cons.total.negatif else '#123e53'}'>"
-        f"{commun.afficher(cons.total)}</div>"
-        f"<div style='font-size:10px;color:#888'>"
-        f"{commun.t('comptes.n_comptes', c=cons.comptes_retenus, d=len(cons.par_devise))}"
-        f"</div></div>",
-        unsafe_allow_html=True)
+    # Le total consolide est le chiffre de tete du panneau : il passe par
+    # le theme, comme celui du calendrier.
+    theme.hero(commun.t("comptes.total"),
+               commun.afficher(cons.total),
+               commun.t("comptes.n_comptes", c=cons.comptes_retenus,
+                        d=len(cons.par_devise)))
 
     if not cons.multidevise:
         return
