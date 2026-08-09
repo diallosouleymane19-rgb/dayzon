@@ -107,7 +107,33 @@ else:
              rendu.count("dz-jour") > 20)
 
 
-print("\n5. Ce que Streamlit ne permet pas n'est pas simule")
+print("\n5. Un encart ne se lit pas deux fois")
+
+# Defaut vu en ligne : « Vous passez sous zero... » apparaissait en titre
+# ET en corps. Une phrase unique doit rester unique.
+_rendus: list[str] = []
+
+
+class _Faux:
+    def markdown(self, contenu, **_):
+        _rendus.append(contenu)
+
+
+_vrai_st = theme.st
+theme.st = _Faux()
+theme.message_phrase("attention", "Une seule phrase sans suite.")
+theme.message_phrase("bon", "Un constat. Puis son explication.")
+theme.st = _vrai_st
+
+verifier("phrase unique : ecrite une fois",
+         _rendus[0].count("Une seule phrase sans suite.") == 1)
+verifier("phrase double : titre et corps distincts",
+         "Un constat." in _rendus[1] and "Puis son explication." in _rendus[1])
+verifier("phrase double : le titre n'est pas repete",
+         _rendus[1].count("Un constat.") == 1)
+
+
+print("\n6. Ce que Streamlit ne permet pas n'est pas simule")
 
 # Une barre de navigation basse en CSS ne reagirait pas au clic : mieux
 # vaut ne pas la dessiner du tout qu'offrir des boutons morts.

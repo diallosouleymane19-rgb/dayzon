@@ -76,8 +76,7 @@ def _bloc(colonne, titre: str, valeur: str, note: str = "",
 
 def _messages(ind) -> None:
     for niveau, texte in ind.messages():
-        titre, _, suite = texte.partition(". ")
-        theme.message(niveau, titre + ("." if suite else ""), suite)
+        theme.message_phrase(niveau, texte)
 
 
 # ---------------------------------------------------------------------------

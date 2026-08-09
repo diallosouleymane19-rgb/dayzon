@@ -227,8 +227,11 @@ def message(niveau: str, titre: str, texte: str) -> None:
     st.markdown(
         f'<div class="dz-msg" style="background:{fond};border:1px solid {bord}">'
         f'<div class="ic" style="color:{couleur};background:{BLANC}">{icone}</div>'
-        f'<div><div class="tt" style="color:{couleur}">{_e(titre)}</div>'
-        f'<div class="tx" style="color:{ENCRE}">{_e(texte)}</div></div></div>',
+        f'<div><div class="tt" style="color:{couleur}"'
+        f'{" style=margin-bottom:0" if not texte else ""}>{_e(titre)}</div>'
+        + (f'<div class="tx" style="color:{ENCRE}">{_e(texte)}</div>'
+           if texte else "")
+        + '</div></div>',
         unsafe_allow_html=True)
 
 
@@ -245,6 +248,22 @@ def carte(contenu_html: str) -> None:
     """Encadre du HTML déjà fabriqué — typiquement une suite de `ligne`."""
     st.markdown(f'<div class="dz-card">{contenu_html}</div>',
                 unsafe_allow_html=True)
+
+
+def message_phrase(niveau: str, phrase: str) -> None:
+    """
+    Affiche une phrase du moteur en encart.
+
+    Les messages sont ecrits « Constat. Explication. » : la premiere
+    phrase sert de titre, le reste de corps. Quand il n'y a qu'une phrase,
+    elle reste seule — la repeter en titre et en corps, comme une premiere
+    version le faisait, donne un encart qui se lit deux fois.
+    """
+    titre, separateur, suite = phrase.partition(". ")
+    if separateur:
+        message(niveau, titre + ".", suite)
+    else:
+        message(niveau, phrase, "")
 
 
 def scenario(nom: str, resume: str, colonnes: list[tuple[str, str, str]],

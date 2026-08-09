@@ -329,10 +329,7 @@ else:
             st.subheader(commun.t("ana.ce_que_ca_veut"))
             for niveau, texte in syn.messages(
                     commun.t, commun.nombre, symbole(st.session_state.devise)):
-                # Le premier segment sert de titre : les messages du moteur
-                # sont écrits « Constat. Explication. »
-                titre, _, suite = texte.partition(". ")
-                theme.message(niveau, titre + ("." if suite else ""), suite)
+                theme.message_phrase(niveau, texte)
 
             st.divider()
             col_g, col_d = st.columns([3, 2])

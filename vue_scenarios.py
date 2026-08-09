@@ -205,8 +205,7 @@ def afficher_scenarios(profil: str = "Particulier") -> None:
         theme.scenario(r.nom,
                        commun.t("sc.sans_modif") if reference else r.resume,
                        colonnes, reference=reference)
-        theme.message(niveau, phrase.split(".")[0] + ".",
-                      phrase.partition(". ")[2] or phrase)
+        theme.message_phrase(niveau, phrase)
 
     # --- Ce qu'il faut retenir ---
     casses = [r for r in resultats[1:] if not r.tient]
