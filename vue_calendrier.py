@@ -119,20 +119,27 @@ def afficher_calendrier(cle: str = "part", mots: dict | None = None) -> None:
                         continue
                     info = par_jour.get(jour)
                     if info is None:
-                        st.caption(f"{jour.day}")
+                        # Avant la date de depart : pas de solde, mais la
+                        # case reste dessinee pour que la grille tienne.
+                        st.markdown(
+                            f"<div class='dz-jour hors'>"
+                            f"<div class='d'>{jour.day}</div></div>",
+                            unsafe_allow_html=True)
                         continue
                     solde = float(info.solde)
                     couleur = (theme.ROUGE if solde < 0
                                else theme.AMBRE if solde < 500 else theme.VERT)
                     mouvement = ""
                     if info.operations:
-                        mouvement = (f"<div class='m'>"
-                                     f"{float(info.variation):+,.0f}</div>")
+                        signe = "+" if info.variation > 0 else "−"
+                        mouvement = (f"<div class='m'>{signe}"
+                                     f"{commun.nombre(abs(info.variation))}"
+                                     f"</div>")
                     st.markdown(
                         f"<div class='dz-jour'>"
                         f"<div class='d'>{jour.day}</div>"
                         f"<div class='s' style='color:{couleur}'>"
-                        f"{solde:,.0f}</div>{mouvement}</div>",
+                        f"{commun.nombre(solde)}</div>{mouvement}</div>",
                         unsafe_allow_html=True)
         st.write("")
 

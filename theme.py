@@ -147,6 +147,7 @@ div[data-baseweb="select"] > div {{
 .dz-jour .s {{ font-size: 13px; font-weight: 700; margin-top: 1px; }}
 .dz-jour .m {{ font-size: 11px; color: {ESTOMPE}; }}
 .dz-jour.vide {{ border-color: transparent; background: transparent; }}
+.dz-jour.hors {{ background: {SURFACE}; border-style: dashed; }}
 .dz-dow {{ font-size: 11px; font-weight: 700; color: {ESTOMPE}; text-align: center;
   padding-bottom: 4px; }}
 

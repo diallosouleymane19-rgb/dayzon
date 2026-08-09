@@ -300,6 +300,17 @@ def afficher(montant) -> str:
     return lg.formater_montant(montant.valeur, montant.devise, langue())
 
 
+def nombre(valeur, decimales: int = 0) -> str:
+    """
+    Un nombre nu, aux separateurs de la langue.
+
+    Sert la ou la devise est deja connue du contexte — les cases du
+    calendrier, par exemple, ou la repeter sur chaque jour surchargerait
+    la grille sans rien apporter.
+    """
+    return lg.formater_nombre(valeur, decimales, langue())
+
+
 def date_longue(jour) -> str:
     """Date complète : 07/08/2026, 07 Aug 2026, 2026年08月07日."""
     return lg.formater_date(jour, langue())
