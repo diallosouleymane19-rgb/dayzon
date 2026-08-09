@@ -143,8 +143,9 @@ with st.sidebar:
         for n, o in enumerate(st.session_state.operations):
             l1, l2 = st.columns([5, 1])
             marque = "" if o.get("certaine", True) else " ~"
+            signe = "+" if o["montant"] > 0 else "−"
             l1.caption(f"{'▲' if o['montant'] > 0 else '▼'} {o['libelle']}{marque} · "
-                       f"{o['montant']:+,.0f} {o['devise']}")
+                       f"{signe}{commun.nombre(abs(o['montant']))} {o['devise']}")
             if l2.button("✕", key=f"del{n}"):
                 st.session_state.operations.pop(n)
                 commun.enregistrer()
@@ -326,7 +327,8 @@ else:
 
             st.divider()
             st.subheader(commun.t("ana.ce_que_ca_veut"))
-            for niveau, texte in syn.messages():
+            for niveau, texte in syn.messages(
+                    commun.t, commun.nombre, symbole(st.session_state.devise)):
                 # Le premier segment sert de titre : les messages du moteur
                 # sont écrits « Constat. Explication. »
                 titre, _, suite = texte.partition(". ")
@@ -342,7 +344,7 @@ else:
                     p1.write(f"{'🟢' if p.est_une_entree else '🔴'} **{p.nom}**")
                     p1.caption(f"{p.categorie}"
                                f"{' · ' + commun.t('ana.charge_fixe') if p.fixe else ''}"
-                               f" — {p.phrase()}")
+                               f" — {p.phrase(commun.t, commun.nombre, symbole(st.session_state.devise))}")
                     p2.markdown(
                         f"<div style='text-align:right;font-size:15px;font-weight:600;"
                         f"color:{'#1F7244' if p.est_une_entree else '#C0392B'}'>"

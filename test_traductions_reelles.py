@@ -143,6 +143,18 @@ for code in ("fr", "en", "es", "zh"):
     for r in restes[:10]:
         print(f"          · {r[:72]}")
 
+    # Les sentinelles ne voient que le francais DECLARE dans fr.json. Un
+    # module jamais branche — analyse_lisible l'a ete pendant tout le
+    # chantier — passait donc inapercu. On cherche aussi des mots francais
+    # caracteristiques, qui n'existent dans aucune des trois autres langues.
+    MOTS = ("Vous ", "Votre ", "Vos ", "chaque mois", "par mois", "revenus",
+            "dépense", "n'est", "d'un", "qu'un", "Il vous")
+    suspects = sorted({t[:78] for t in affiches
+                       if any(m in t for m in MOTS)})
+    verifier(f"{code} : aucun mot francais non declare", not suspects)
+    for s in suspects[:8]:
+        print(f"          ? {s}")
+
 
 print("\n3. Les valeurs internes ne dependent pas de la langue")
 

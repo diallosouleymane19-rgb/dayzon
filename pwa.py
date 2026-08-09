@@ -156,17 +156,6 @@ def message_installation() -> None:
         return
     st.session_state._pwa_message_vu = True
 
-    with st.expander("📱 Installer Dayzon sur votre téléphone"):
-        st.markdown("""
-**Sur Android** — menu du navigateur (⋮) → *Installer l'application*
-ou *Ajouter à l'écran d'accueil*.
-
-**Sur iPhone** — bouton Partager (⬆️) → *Sur l'écran d'accueil*.
-Safari uniquement : Chrome sur iOS ne le permet pas.
-
-**Sur ordinateur** — icône d'installation dans la barre d'adresse,
-à droite.
-
-L'application s'ouvre alors en plein écran, comme une application
-installée. Vos données restent sur votre appareil.
-        """)
+    import commun
+    with st.expander(commun.t("pwa.installer")):
+        st.markdown(commun.t("pwa.aide"))

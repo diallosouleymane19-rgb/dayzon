@@ -244,7 +244,7 @@ def panneau_sauvegarde() -> None:
     titre = "💾 " + (commun.t("sauv.titre") if local else commun.t("sauv.vos_donnees"))
 
     with st.expander(titre):
-        st.caption(sv.raison_mode())
+        st.caption(commun.t(sv.cle_mode()))
 
         if local:
             _sauvegarde_locale()

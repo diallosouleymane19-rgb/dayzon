@@ -83,14 +83,20 @@ def mode_local() -> bool:
         return False
 
 
+def cle_mode() -> str:
+    """
+    La cle du message expliquant ou vont les donnees.
+
+    Ce module ne traduit pas : il n'a pas a connaitre la langue. Il rend
+    une cle, l'interface l'affiche dans la langue de lecture.
+    """
+    return "sauv.mode_local" if mode_local() else "sauv.mode_ligne"
+
+
 def raison_mode() -> str:
-    """Phrase affichable expliquant où vont les données."""
-    if mode_local():
-        return ("Vos données sont enregistrées sur cet ordinateur, "
-                "dans votre dossier personnel.")
-    return ("En ligne, rien n'est enregistré sur le serveur : vos données "
-            "restent dans votre navigateur le temps de la visite. "
-            "Téléchargez votre fichier pour les conserver.")
+    """Repli francais, pour les appels hors interface."""
+    from langues import traduire
+    return traduire(cle_mode(), "fr")
 
 
 class ErreurSauvegarde(Exception):

@@ -187,6 +187,22 @@ def nom_lisible(libelle: str) -> str:
 # Postes de depense et de recette
 # ---------------------------------------------------------------------------
 
+def _texte(cle: str, **variables) -> str:
+    """
+    Repli quand l'interface ne fournit pas sa propre traduction.
+
+    Ce module reste pur : il ne connait ni Streamlit ni la langue de
+    lecture. L'appelant la lui donne ; sans cela, il repond en francais.
+    """
+    from langues import traduire
+    return traduire(cle, "fr", **variables)
+
+
+def _nombre(valeur, code: str = "fr") -> str:
+    from langues import formater_nombre
+    return formater_nombre(valeur, 0, code)
+
+
 @dataclass
 class Poste:
     """Un regroupement d'operations, presente en langage clair."""
@@ -204,17 +220,24 @@ class Poste:
     def est_une_entree(self) -> bool:
         return self.total > 0
 
-    def phrase(self) -> str:
-        """Une phrase qu'un utilisateur comprend sans explication."""
-        somme = f"{abs(float(self.par_mois)):,.0f}".replace(",", "\u202f")
+    def phrase(self, t=None, nombre=None, symbole: str = "€") -> str:
+        """
+        Une phrase qu'un utilisateur comprend sans explication.
+
+        `t` traduit, `nombre` met en forme selon la langue de lecture.
+        Les deux sont injectes : ce module ne connait pas l'interface.
+        """
+        t = t or _texte
+        nombre = nombre or _nombre
+        somme = nombre(abs(float(self.par_mois)))
+
         if self.fixe and self.jour_habituel:
-            sens = "reçu" if self.est_une_entree else "prélevé"
-            return (f"{somme} € {sens} chaque mois, "
-                    f"vers le {self.jour_habituel} du mois")
+            sens = t("an.recu") if self.est_une_entree else t("an.preleve")
+            return t("an.fixe_mensuel", somme=somme, sym=symbole,
+                     sens=sens, jour=self.jour_habituel)
         if self.nombre == 1:
-            return "opération unique"
-        return (f"environ {somme} € par mois, "
-                f"{self.nombre} opération{'s' if self.nombre > 1 else ''} sur la période")
+            return t("an.unique")
+        return t("an.environ", somme=somme, sym=symbole, n=self.nombre)
 
 
 def _jour_habituel(dates: list[date]) -> int | None:
@@ -294,48 +317,46 @@ class Synthese:
 
     @staticmethod
     def _somme(v) -> str:
-        """1538.33 -> « 1 538 » sans abimer la ponctuation de la phrase."""
-        return f"{abs(float(v)):,.0f}".replace(",", "\u202f")
+        """Repli francais. L'interface passe son propre formateur."""
+        return _nombre(abs(float(v)))
 
-    def messages(self) -> list[tuple[str, str]]:
+    def messages(self, t=None, nombre=None,
+                 symbole: str = "€") -> list[tuple[str, str]]:
         """Constats en langage clair. Renvoie (niveau, texte)."""
+        t = t or _texte
+        somme = nombre or self._somme
+
         out: list[tuple[str, str]] = []
         e = float(self.entrees_par_mois)
         r = float(self.reste_par_mois)
+        pct = f"{self.taux_epargne:.0f}"
 
         if r < 0:
-            out.append(("alerte",
-                f"Vous dépensez {self._somme(r)} € de plus que vous ne gagnez "
-                f"chaque mois."))
+            out.append(("alerte", t("an.deficit", somme=somme(abs(r)),
+                                    sym=symbole)))
         elif e > 0 and r / e < 0.05:
-            out.append(("attention",
-                f"Il ne vous reste que {self._somme(r)} € par mois, soit "
-                f"{self.taux_epargne:.0f} % de vos revenus. Une dépense imprévue "
-                f"vous mettrait en difficulté."))
+            out.append(("attention", t("an.marge_faible", somme=somme(abs(r)),
+                                       sym=symbole, p=pct)))
         else:
-            out.append(("bon",
-                f"Vous mettez de côté {self._somme(r)} € par mois, soit "
-                f"{self.taux_epargne:.0f} % de vos revenus."))
+            out.append(("bon", t("an.epargne", somme=somme(abs(r)),
+                                 sym=symbole, p=pct)))
 
         if self.part_fixe > 70:
-            out.append(("attention",
-                f"Vos charges fixes représentent {self.part_fixe:.0f} % de vos revenus. "
-                f"Au-delà de 70 %, votre budget manque de souplesse."))
+            out.append(("attention", t("an.charges_lourdes",
+                                       p=f"{self.part_fixe:.0f}")))
 
         if self.postes:
             sorties = [p for p in self.postes if not p.est_une_entree]
             if sorties:
                 p = sorties[0]
-                out.append(("info",
-                    f"Votre premier poste de dépense est « {p.nom} » : "
-                    f"{self._somme(p.par_mois)} € par mois."))
+                out.append(("info", t("an.premier_poste", nom=p.nom,
+                                      somme=somme(abs(float(p.par_mois))),
+                                      sym=symbole)))
 
         variables = float(abs(self.depenses_variables))
         if e > 0 and variables / e > 0.35:
-            out.append(("info",
-                f"Vos dépenses variables — courses, restaurants, achats — pèsent "
-                f"{self._somme(variables)} € par mois. C'est le poste sur lequel "
-                f"vous avez le plus de marge de manœuvre."))
+            out.append(("info", t("an.variables", somme=somme(variables),
+                                  sym=symbole)))
         return out
 
 
