@@ -140,6 +140,18 @@ div[data-baseweb="select"] > div {{
 .dz-tag {{ display: inline-block; font-size: 11px; font-weight: 700; border-radius: 6px;
   padding: 2px 7px; margin-left: 5px; }}
 
+/* ---- Carte de scenario ------------------------------------------------ */
+.dz-sc {{ background: {BLANC}; border: 1px solid {LIGNE}; border-radius: 18px;
+  padding: 14px 16px; margin-bottom: 10px; }}
+.dz-sc.ref {{ border-color: {MARINE}; }}
+.dz-sc .nom {{ font-size: 14px; font-weight: 750; }}
+.dz-sc .res {{ font-size: 12px; color: {ESTOMPE}; margin-top: 3px; line-height: 1.45; }}
+.dz-sc .grille {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+  border-top: 1px solid {LIGNE}; margin-top: 12px; padding-top: 11px; }}
+.dz-sc .grille .t {{ font-size: 11px; color: {ESTOMPE}; text-transform: uppercase;
+  letter-spacing: .04em; font-weight: 700; }}
+.dz-sc .grille .v {{ font-size: 15px; font-weight: 750; margin-top: 3px; white-space: nowrap; }}
+
 /* ---- Grille du calendrier --------------------------------------------- */
 .dz-jour {{ border: 1px solid {LIGNE}; border-radius: 9px; padding: 5px 6px;
   min-height: 58px; background: {BLANC}; }}
@@ -233,6 +245,26 @@ def carte(contenu_html: str) -> None:
     """Encadre du HTML déjà fabriqué — typiquement une suite de `ligne`."""
     st.markdown(f'<div class="dz-card">{contenu_html}</div>',
                 unsafe_allow_html=True)
+
+
+def scenario(nom: str, resume: str, colonnes: list[tuple[str, str, str]],
+             reference: bool = False) -> None:
+    """
+    Une carte de scénario : son nom, son hypothèse, et trois résultats.
+
+    `colonnes` est une suite de (titre, valeur, couleur). Trois au plus :
+    au-delà, la grille se casse sur un téléphone.
+    """
+    cases = "".join(
+        f'<div><div class="t">{_e(t)}</div>'
+        f'<div class="v" style="color:{c}">{_e(v)}</div></div>'
+        for t, v, c in colonnes[:3])
+    st.markdown(
+        f'<div class="dz-sc{" ref" if reference else ""}">'
+        f'<div class="nom">{_e(nom)}</div>'
+        f'<div class="res">{_e(resume)}</div>'
+        f'<div class="grille">{cases}</div></div>',
+        unsafe_allow_html=True)
 
 
 def couleur_montant(valeur) -> str:

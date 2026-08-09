@@ -389,6 +389,7 @@
   "sc.sans_modif": "Votre trajectoire actuelle, sans modification",
   "sc.selectionnez": "Sélectionnez au moins un scénario ci-dessus.",
   "sc.situation_actuelle": "Situation actuelle",
+  "sc.solde_a_terme": "Solde à {n} mois",
   "sc.solde_selon": "Votre solde selon chaque hypothèse",
   "sc.sortie": "Sortie",
   "sc.supposer": "Que voulez-vous supposer ?",

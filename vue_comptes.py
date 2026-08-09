@@ -26,7 +26,7 @@ import sauvegarde as sv
 from argent import ErreurArgent, Montant, Taux, nom_devise
 from comptes import Compte, ErreurCompte
 
-VERT, ROUGE, ORANGE = "#1F7244", "#C0392B", "#E67E22"
+VERT, ROUGE, ORANGE = theme.VERT, theme.ROUGE, theme.AMBRE
 
 # Au-delà, un taux mérite d'être revérifié avant de servir à décider.
 JOURS_AVANT_ALERTE_TAUX = 60

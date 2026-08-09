@@ -17,10 +17,11 @@ import streamlit as st
 from analyse_entreprise import (calculer_indicateurs, factures_vers_operations,
                                 lire_factures)
 import commun
+import theme
 from commun import formater, formater_court, solde_de_depart
 from vue_calendrier import afficher_calendrier
 
-VERT, ROUGE, ORANGE = "#1F7244", "#C0392B", "#E67E22"
+VERT, ROUGE, ORANGE = theme.VERT, theme.ROUGE, theme.AMBRE
 
 
 # ---------------------------------------------------------------------------
@@ -68,22 +69,15 @@ def barre_laterale_entreprise() -> None:
 # ---------------------------------------------------------------------------
 
 def _bloc(colonne, titre: str, valeur: str, note: str = "",
-          couleur: str = "#1F4E79") -> None:
-    colonne.markdown(
-        f"<div style='border:1px solid #e6e6e6;border-radius:10px;padding:12px 14px;"
-        f"height:100%'>"
-        f"<div style='font-size:11px;color:#777;text-transform:uppercase;"
-        f"letter-spacing:.4px'>{titre}</div>"
-        f"<div style='font-size:24px;font-weight:700;color:{couleur};"
-        f"margin:4px 0 2px'>{valeur}</div>"
-        f"<div style='font-size:11px;color:#888'>{note}</div></div>",
-        unsafe_allow_html=True)
+          couleur: str = theme.ENCRE) -> None:
+    """Conserve pour ne pas reecrire tous les appels ; delegue au theme."""
+    theme.kpi(colonne, titre, valeur, note, couleur)
 
 
 def _messages(ind) -> None:
     for niveau, texte in ind.messages():
-        {"alerte": st.error, "attention": st.warning,
-         "bon": st.success}.get(niveau, st.info)(texte)
+        titre, _, suite = texte.partition(". ")
+        theme.message(niveau, titre + ("." if suite else ""), suite)
 
 
 # ---------------------------------------------------------------------------

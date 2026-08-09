@@ -15,12 +15,14 @@ import pandas as pd
 import streamlit as st
 
 import commun
+import theme
 
 from commun import DEVISES, formater_court, solde_de_depart
 from moteur_tresorerie import Recurrence
 from scenarios import (GENRES, PORTEES, Hypothese, Scenario, comparer, modeles)
 
-VERT, ROUGE, ORANGE, GRIS = "#1F7244", "#C0392B", "#E67E22", "#8A8A8A"
+VERT, ROUGE, ORANGE, GRIS = (theme.VERT, theme.ROUGE, theme.AMBRE,
+                             theme.ESTOMPE)
 
 
 def _taux() -> dict:
@@ -180,43 +182,31 @@ def afficher_scenarios(profil: str = "Particulier") -> None:
         reference = r.nom == base.nom
         niveau, phrase = r.verdict(commun.t, commun.date_longue,
                                    formater_court)
-        couleur = {"bon": VERT, "attention": ORANGE, "alerte": ROUGE}[niveau]
+        couleur = {"bon": theme.VERT, "attention": theme.AMBRE,
+                   "alerte": theme.ROUGE}[niveau]
 
-        c1, c2, c3 = st.columns([3.2, 2, 2])
-        with c1:
-            st.markdown(f"**{r.nom}**")
-            if not reference:
-                st.caption(r.resume)
-            else:
-                st.caption(commun.t("sc.sans_modif"))
-        with c2:
-            st.markdown(
-                f"<div style='text-align:right'>"
-                f"<span style='font-size:19px;font-weight:700;color:{couleur}'>"
-                f"{formater_court(r.solde_minimum)}</span><br>"
-                f"<span style='font-size:11px;color:#888'>"
-                f"{commun.t('sc.point_bas_le', date=commun.date_courte(r.date_solde_min))}"
-                f"</span></div>",
-                unsafe_allow_html=True)
-        with c3:
-            if reference:
-                st.markdown("<div style='text-align:right;color:#888;"
-                            "font-size:12px;padding-top:6px'>"
-                            + commun.t("sc.reference") + "</div>",
-                            unsafe_allow_html=True)
-            else:
-                signe = "" if float(r.ecart_final) < 0 else "+"
-                st.markdown(
-                    f"<div style='text-align:right'>"
-                    f"<span style='font-size:17px;font-weight:600;color:"
-                    f"{ROUGE if float(r.ecart_final) < 0 else VERT}'>"
-                    f"{signe}{formater_court(r.ecart_final)}</span><br>"
-                    f"<span style='font-size:11px;color:#888'>"
-                    f"{commun.t('sc.ecart_a', n=horizon // 30)}</span></div>",
-                    unsafe_allow_html=True)
+        # Trois chiffres par scenario, toujours les memes, toujours dans le
+        # meme ordre : on compare des colonnes, pas des paragraphes.
+        colonnes = [
+            (commun.t("sc.solde_a_terme", n=horizon // 30),
+             formater_court(r.solde_final), theme.ENCRE),
+            (commun.t("col.point_bas"),
+             formater_court(r.solde_minimum), couleur),
+        ]
+        if reference:
+            colonnes.append((commun.t("col.ecart"),
+                             commun.t("sc.reference"), theme.ESTOMPE))
+        else:
+            signe = "" if float(r.ecart_final) < 0 else "+"
+            colonnes.append((commun.t("sc.ecart_a", n=horizon // 30),
+                             signe + formater_court(r.ecart_final),
+                             theme.couleur_montant(r.ecart_final)))
 
-        {"alerte": st.error, "attention": st.warning,
-         "bon": st.success}[niveau](phrase)
+        theme.scenario(r.nom,
+                       commun.t("sc.sans_modif") if reference else r.resume,
+                       colonnes, reference=reference)
+        theme.message(niveau, phrase.split(".")[0] + ".",
+                      phrase.partition(". ")[2] or phrase)
 
     # --- Ce qu'il faut retenir ---
     casses = [r for r in resultats[1:] if not r.tient]

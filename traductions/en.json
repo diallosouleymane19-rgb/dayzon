@@ -389,6 +389,7 @@
   "sc.sans_modif": "Your current path, unchanged",
   "sc.selectionnez": "Select at least one scenario above.",
   "sc.situation_actuelle": "Current situation",
+  "sc.solde_a_terme": "Balance at {n} months",
   "sc.solde_selon": "Your balance under each assumption",
   "sc.sortie": "Money out",
   "sc.supposer": "What do you want to assume?",
