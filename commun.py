@@ -273,13 +273,21 @@ def formater(montant, devise: str | None = None) -> str:
 
 
 def formater_court(montant, devise: str | None = None) -> str:
-    """Sans les centimes, pour les indicateurs où ils n'apportent rien."""
+    """
+    Un montant, avec les decimales de sa devise.
+
+    Le nom vient d'une version qui supprimait les centimes. Ils sont
+    retablis : sur un outil de tresorerie, « 7 650 » et « 7 650,00 » ne
+    disent pas la meme chose — le premier laisse croire a un arrondi.
+
+    Le nombre de decimales reste celui de la devise, jamais deux par
+    defaut : l'euro et le dollar en ont deux, le yen et le franc CFA
+    aucune, le dinar koweitien trois.
+    """
     if isinstance(montant, Montant):
-        return lg.formater_montant(montant.valeur, montant.devise, langue(),
-                                   avec_decimales=False)
+        return lg.formater_montant(montant.valeur, montant.devise, langue())
     d = devise or devise_reference()
-    return lg.formater_montant(Montant.de(montant, d).valeur, d, langue(),
-                               avec_decimales=False)
+    return lg.formater_montant(Montant.de(montant, d).valeur, d, langue())
 
 
 def formater_date(jour) -> str:
@@ -300,14 +308,19 @@ def afficher(montant) -> str:
     return lg.formater_montant(montant.valeur, montant.devise, langue())
 
 
-def nombre(valeur, decimales: int = 0) -> str:
+def nombre(valeur, decimales: int | None = None) -> str:
     """
     Un nombre nu, aux separateurs de la langue.
 
     Sert la ou la devise est deja connue du contexte — les cases du
     calendrier, par exemple, ou la repeter sur chaque jour surchargerait
     la grille sans rien apporter.
+
+    Sans precision, le nombre de decimales est celui de la devise de
+    reference : deux pour l'euro et le dollar, aucune pour le yen.
     """
+    if decimales is None:
+        decimales = argent.decimales(devise_reference())
     return lg.formater_nombre(valeur, decimales, langue())
 
 

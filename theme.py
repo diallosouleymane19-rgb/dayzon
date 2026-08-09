@@ -156,7 +156,8 @@ div[data-baseweb="select"] > div {{
 .dz-jour {{ border: 1px solid {LIGNE}; border-radius: 9px; padding: 5px 6px;
   min-height: 58px; background: {BLANC}; }}
 .dz-jour .d {{ font-size: 11px; color: {ESTOMPE}; }}
-.dz-jour .s {{ font-size: 13px; font-weight: 700; margin-top: 1px; }}
+.dz-jour .s {{ font-size: 12px; font-weight: 700; margin-top: 1px;
+  white-space: nowrap; letter-spacing: -.02em; }}
 .dz-jour .m {{ font-size: 11px; color: {ESTOMPE}; }}
 .dz-jour.vide {{ border-color: transparent; background: transparent; }}
 .dz-jour.hors {{ background: {SURFACE}; border-style: dashed; }}
@@ -168,6 +169,8 @@ div[data-baseweb="select"] > div {{
   .block-container {{ padding: 1rem .8rem 5rem !important; }}
   h1 {{ font-size: 1.45rem !important; }}
   .dz-hero .val {{ font-size: 29px; }}
+  .dz-jour {{ padding: 4px 3px; min-height: 54px; }}
+  .dz-jour .s {{ font-size: 11px; letter-spacing: -.04em; }}
   .stTabs [data-baseweb="tab-list"] {{ overflow-x: auto; flex-wrap: nowrap;
     scrollbar-width: none; }}
   .stTabs [data-baseweb="tab-list"]::-webkit-scrollbar {{ display: none; }}

@@ -133,7 +133,33 @@ verifier("phrase double : le titre n'est pas repete",
          _rendus[1].count("Un constat.") == 1)
 
 
-print("\n6. Ce que Streamlit ne permet pas n'est pas simule")
+print("\n6. Les centimes suivent la devise")
+
+# Demande explicite : deux decimales en euro et en dollar. Le nombre reste
+# celui de la devise — le yen et le franc CFA n'ont pas de centimes.
+import langues as _lg                                           # noqa: E402
+import argent as _argent                                        # noqa: E402
+
+for devise, attendu in (("EUR", 2), ("USD", 2), ("GBP", 2),
+                        ("JPY", 0), ("XOF", 0), ("KWD", 3)):
+    verifier(f"{devise} : {attendu} decimale(s)",
+             _argent.decimales(devise) == attendu)
+
+for code, devise, attendu in (("fr", "EUR", "7\u202f650,00\u00a0\u20ac"),
+                              ("en", "USD", "$7,650.00"),
+                              ("fr", "XOF", "7\u202f650\u00a0FCFA")):
+    obtenu = _lg.formater_montant(7650, devise, code)
+    verifier(f"{code}/{devise} : {obtenu}", obtenu == attendu)
+
+# La fonction dite « courte » ne doit plus supprimer les centimes.
+_src_commun = Path("commun.py").read_text(encoding="utf-8")
+_bloc = _src_commun[_src_commun.index("def formater_court"):
+                    _src_commun.index("def formater_date")]
+verifier("formater_court n'ecrase plus les decimales",
+         "avec_decimales=False" not in _bloc)
+
+
+print("\n7. Ce que Streamlit ne permet pas n'est pas simule")
 
 # Une barre de navigation basse en CSS ne reagirait pas au clic : mieux
 # vaut ne pas la dessiner du tout qu'offrir des boutons morts.
