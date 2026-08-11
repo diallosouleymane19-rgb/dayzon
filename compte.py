@@ -30,7 +30,7 @@ ici et ne doit jamais être placée dans ce fichier.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 
 import streamlit as st
@@ -119,6 +119,7 @@ class Session:
     email: str
     espace_id: str = ""
     jeton: str = ""
+    inscrit_le: date | None = None      # début de la période d'essai
 
 
 def session() -> Session | None:
@@ -206,8 +207,30 @@ def _ouvrir(reponse) -> None:
         identifiant=utilisateur.id,
         email=utilisateur.email or "",
         jeton=reponse.session.access_token,
+        inscrit_le=_date_inscription(utilisateur),
     )
     st.session_state.session_utilisateur.espace_id = _espace_courant()
+
+
+def _date_inscription(utilisateur) -> date | None:
+    """
+    Le jour où le compte a été créé — le point de départ de l'essai.
+
+    Supabase le donne dans `created_at`, tantôt en `datetime`, tantôt en
+    texte ISO selon la version de la bibliothèque. Si la lecture échoue,
+    on rend `None` : l'essai sera alors traité comme non commencé plutôt
+    que comme expiré. Une erreur de notre côté ne doit jamais fermer
+    l'accès à quelqu'un.
+    """
+    brut = getattr(utilisateur, "created_at", None)
+    if brut is None:
+        return None
+    if isinstance(brut, datetime):
+        return brut.date()
+    try:
+        return datetime.fromisoformat(str(brut).replace("Z", "+00:00")).date()
+    except ValueError:
+        return None
 
 
 def deconnecter() -> None:

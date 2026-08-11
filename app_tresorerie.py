@@ -188,6 +188,8 @@ if (st.session_state.get("page") == "abonnement"
         st.rerun()
     st.stop()
 
+from vue_abonnement import bandeau_abonnement
+bandeau_abonnement()
 bandeau_essai()
 
 if "analyse" in st.session_state:

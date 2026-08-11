@@ -132,6 +132,53 @@ verifier("le dernier jour compte", a.actif(date(2026, 6, 30)), True)
 
 
 # ---------------------------------------------------------------------------
+print("\n3 bis. L'essai de quatorze jours")
+# ---------------------------------------------------------------------------
+
+from abonnement import DUREE_ESSAI, essai                      # noqa: E402
+
+verifier("l'essai dure 14 jours", DUREE_ESSAI, 14)
+
+inscrit = date.today()
+neuf = essai(inscrit)
+verifier("compte du jour : en essai", neuf.plan, Plan.ESSAI)
+verifier("essai : actif", neuf.actif(), True)
+verifier("essai : 14 jours restants", neuf.jours_restants(), 14)
+verifier("essai : scénarios ouverts", neuf.autorise("scenarios"), True)
+verifier("essai : exports ouverts", neuf.autorise("exports"), True)
+# L'essai montre aussi le profil Entreprise : bride, il ne vendrait que le
+# plan a 7 $. Personne ne paie 29 $ pour ce qu'il n'a jamais vu tourner.
+verifier("essai : profil Entreprise ouvert", neuf.autorise("entreprise"), True)
+verifier("essai : horizon complet", neuf.limite_jours(), 730)
+
+vieux = essai(date.today() - timedelta(days=DUREE_ESSAI + 1))
+verifier("essai passé : inactif", vieux.actif(), False)
+verifier("essai passé : retour en Découverte", vieux.plan_effectif(),
+         Plan.DECOUVERTE)
+verifier("essai passé : plus de scénarios", vieux.autorise("scenarios"), False)
+verifier("essai passé : horizon ramené à 90 j", vieux.limite_jours(), 90)
+
+# Le dernier jour compte : couper a midi le quatorzieme jour serait percu
+# comme une journee volee.
+dernier = essai(date.today() - timedelta(days=DUREE_ESSAI))
+verifier("dernier jour : encore actif", dernier.actif(), True)
+verifier("dernier jour : 0 jour restant", dernier.jours_restants(), 0)
+verifier("dernier jour : message dedie",
+         "Dernier jour" in dernier.etat(_t), True)
+
+# Une date d'inscription illisible ne doit jamais fermer l'acces par erreur.
+sans_date = essai(None)
+verifier("sans date d'inscription : Découverte, pas de blocage",
+         sans_date.plan, Plan.DECOUVERTE)
+verifier("sans date : reste utilisable", sans_date.actif(), True)
+
+verifier("l'essai se compte en jours dans le message",
+         "jours" in neuf.etat(_t), True)
+verifier("le message d'essai se traduit",
+         "days" in neuf.etat(_en), True)
+
+
+# ---------------------------------------------------------------------------
 print("\n4. Configuration")
 # ---------------------------------------------------------------------------
 

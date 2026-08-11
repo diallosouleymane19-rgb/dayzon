@@ -30,7 +30,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta          # noqa: F401
 from enum import Enum
 
 
@@ -48,9 +48,16 @@ def _sans_traduction(cle: str, **variables) -> str:
 
 class Plan(str, Enum):
     LIBRE = "libre"                 # aucun paiement configuré, ou démonstration
-    DECOUVERTE = "decouverte"       # gratuit, limité
+    ESSAI = "essai"                 # 14 jours, tout ouvert, à partir de l'inscription
+    DECOUVERTE = "decouverte"       # gratuit, limité, sans terme
     PARTICULIER = "particulier"
     ENTREPRISE = "entreprise"
+
+
+# Durée de l'essai, en jours. Quatorze : assez pour importer un relevé et
+# voir passer une échéance mensuelle, assez court pour qu'une décision se
+# prenne. Sept ne laisse pas voir un cycle ; trente laisse l'essai s'endormir.
+DUREE_ESSAI = 14
 
 
 class Periode(str, Enum):
@@ -159,6 +166,21 @@ OFFRES: dict[Plan, Offre] = {
                         "plan.entreprise.arg3", "plan.entreprise.arg4",
                         "plan.entreprise.arg5", "plan.entreprise.arg6")),
 
+    # L'essai ouvre tout, y compris le profil Entreprise. Bridé, il ne
+    # vendrait que la formule à 7 $ : personne ne paie 29 $ pour des
+    # indicateurs qu'il n'a jamais vus fonctionner sur ses propres chiffres.
+    Plan.ESSAI: Offre(
+        plan=Plan.ESSAI,
+        cle_nom="plan.essai.nom",
+        cle_resume="plan.essai.resume",
+        jours_projection=730,
+        nb_fichiers=999,
+        scenarios=True,
+        exports=True,
+        profil_entreprise=True,
+        cles_arguments=("plan.essai.arg1", "plan.essai.arg2",
+                        "plan.essai.arg3")),
+
     # Plan interne : aucun paiement configuré, ou démonstration commerciale.
     Plan.LIBRE: Offre(
         plan=Plan.LIBRE,
@@ -173,6 +195,21 @@ OFFRES: dict[Plan, Offre] = {
 
 OFFRES_VENDUES = [OFFRES[Plan.DECOUVERTE], OFFRES[Plan.PARTICULIER],
                   OFFRES[Plan.ENTREPRISE]]
+
+
+def essai(inscrit_le: date | None) -> "Abonnement":
+    """
+    L'abonnement d'essai d'un compte, d'après sa date de création.
+
+    Le compteur part de l'inscription, seul point de départ mesurable :
+    un visiteur sans compte effacerait son navigateur et repartirait à
+    zéro. Sans date connue, on n'invente pas d'échéance et on rend le plan
+    Découverte — mieux vaut trop peu de droits qu'un accès fermé à tort.
+    """
+    if inscrit_le is None:
+        return Abonnement(plan=Plan.DECOUVERTE)
+    return Abonnement(plan=Plan.ESSAI,
+                      fin=inscrit_le + timedelta(days=DUREE_ESSAI))
 
 
 # ---------------------------------------------------------------------------
@@ -254,6 +291,14 @@ class Abonnement:
             return t("abo.etat_libre")
         if self.plan is Plan.DECOUVERTE:
             return t("abo.etat_decouverte")
+        if self.plan is Plan.ESSAI:
+            restants = self.jours_restants(au)
+            if not self.actif(au):
+                return t("abo.etat_essai_fini")
+            if restants == 0:
+                return t("abo.etat_essai_dernier_jour")
+            return t("abo.etat_essai", jours=restants,
+                     date=ecrire(self.fin) if self.fin else "")
         if not self.actif(au):
             return t("abo.etat_expire", plan=self.offre.nom(t),
                      date=ecrire(self.fin) if self.fin else "")

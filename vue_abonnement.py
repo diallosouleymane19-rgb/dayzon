@@ -53,14 +53,31 @@ def etat_abonnement() -> ab.Abonnement:
         st.session_state.abonnement = ab.Abonnement(plan=Plan.LIBRE)
         return st.session_state.abonnement
 
-    email = ""
-    if compte.connecte():
-        email = compte.session().email
+    if not compte.connecte():
+        # Sans compte, aucun essai : il suffirait d'effacer son navigateur
+        # pour en redemander un. On montre le produit dans sa version
+        # gratuite, et l'écran d'abonnement dit comment obtenir les 14 jours.
+        st.session_state.abonnement = ab.Abonnement(plan=Plan.DECOUVERTE)
+        return st.session_state.abonnement
 
-    identifiant = ab.trouver_client(email, config) if email else ""
-    st.session_state.abonnement = (
-        ab.lire_abonnement(identifiant, config) if identifiant
-        else ab.Abonnement(plan=Plan.DECOUVERTE))
+    s = compte.session()
+    identifiant = ab.trouver_client(s.email, config)
+    paye = ab.lire_abonnement(identifiant, config) if identifiant else None
+
+    # Un abonnement payant l'emporte toujours sur l'essai : quelqu'un qui
+    # paie le troisième jour ne doit pas retomber en Découverte le
+    # quinzième.
+    if paye is not None and paye.plan in (Plan.PARTICULIER, Plan.ENTREPRISE):
+        st.session_state.abonnement = paye
+        return paye
+
+    en_essai = ab.essai(s.inscrit_le)
+    if en_essai.actif():
+        en_essai.identifiant_client = identifiant
+        st.session_state.abonnement = en_essai
+    else:
+        st.session_state.abonnement = ab.Abonnement(
+            plan=Plan.DECOUVERTE, identifiant_client=identifiant)
     return st.session_state.abonnement
 
 
@@ -71,6 +88,36 @@ def oublier_etat() -> None:
 # ---------------------------------------------------------------------------
 # Affichage d'un prix
 # ---------------------------------------------------------------------------
+
+def bandeau_abonnement() -> None:
+    """
+    Le décompte de l'essai, en haut de l'application.
+
+    Sans lui, la période d'essai se terminerait sans que personne l'ait vue
+    passer : la page d'abonnement n'est visitée que par ceux qui la
+    cherchent, c'est-à-dire presque personne.
+    """
+    if not _config().configure:
+        return
+
+    etat = etat_abonnement()
+    if etat.plan is Plan.ESSAI and etat.actif():
+        restants = etat.jours_restants() or 0
+        niveau = "attention" if restants <= 3 else "info"
+        theme.message(niveau, commun.t("abo.essai_titre", jours=restants),
+                      commun.t("abo.essai_texte"))
+    elif (etat.plan is Plan.ESSAI
+          or (etat.plan is Plan.DECOUVERTE and compte.connecte())):
+        theme.message("info", commun.t("abo.fini_titre"),
+                      commun.t("abo.fini_texte"))
+    else:
+        return
+
+    if st.button(commun.t("abo.voir_formules"), key="bandeau_abo",
+                 type="primary"):
+        st.session_state.page = "abonnement"
+        st.rerun()
+
 
 def _prix(offre, periode: Periode) -> str:
     """

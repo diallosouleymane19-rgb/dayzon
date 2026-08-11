@@ -216,6 +216,54 @@ for code in ("fr", "en", "es", "zh"):
         print(f"          ? {s}")
 
 
+print("\n2 ter. Le decompte de l'essai s'affiche en haut de l'application")
+
+# Sans ce bandeau, la periode d'essai se terminerait sans que personne
+# l'ait vue passer : la page d'abonnement n'est visitee que par ceux qui
+# la cherchent, c'est-a-dire presque personne.
+from datetime import timedelta as _td                          # noqa: E402
+
+from abonnement import essai as _essai                         # noqa: E402
+
+
+def _encarts(at: AppTest) -> list[str]:
+    return [str(m.value) for m in at.markdown
+            if '<div class="dz-msg' in str(m.value)]
+
+
+for titre, jours_ecoules, attendu in (("essai neuf", 0, "14"),
+                                      ("essai finissant", 12, "2"),
+                                      ("essai termine", 30, None)):
+    at = AppTest.from_file("app_tresorerie.py", default_timeout=120)
+    at.session_state["langue"] = "fr"
+    avec_donnees(at)
+    sans_reseau(at)
+    at.session_state["page"] = ""           # on reste sur l'application
+    at.session_state["abonnement"] = _essai(
+        __import__("datetime").date.today() - _td(days=jours_ecoules))
+    at.run()
+
+    verifier(f"{titre} : l'application demarre", not at.exception)
+    if at.exception:
+        print(f"          {at.exception[0].message}")
+        continue
+
+    encarts = " ".join(_encarts(at))
+    verifier(f"{titre} : un encart d'abonnement est rendu", bool(encarts))
+    if attendu:
+        verifier(f"{titre} : le decompte annonce {attendu} jours",
+                 f"{attendu} jours" in encarts)
+    else:
+        # Un essai echu ne doit pas afficher « 0 jours restants » : la
+        # phrase serait exacte et incomprehensible. On cherche « restants »
+        # et non « 0 jours » — la phrase de repli parle de 90 jours, et
+        # « 90 jours » contient « 0 jours ».
+        verifier(f"{titre} : la fin est annoncee, pas un decompte a zero",
+                 "terminé" in encarts and "restants" not in encarts)
+    verifier(f"{titre} : le bouton vers les formules est present",
+             any(b.label for b in at.button if "formules" in b.label))
+
+
 print("\n3. Les valeurs internes ne dependent pas de la langue")
 
 # Une etiquette traduite ne doit jamais servir de cle : sinon changer de
