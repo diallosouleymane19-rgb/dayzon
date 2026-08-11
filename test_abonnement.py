@@ -7,9 +7,18 @@ Lancer :  py test_abonnement.py
 
 from datetime import date, timedelta
 
+import langues as lg
 from abonnement import (OFFRES, OFFRES_VENDUES, Abonnement, ConfigStripe,
                         ErreurPaiement, Periode, Plan, charger_configuration,
                         ouvrir_paiement)
+
+
+def _t(cle, **v):
+    return lg.traduire(cle, "fr", **v)
+
+
+def _en(cle, **v):
+    return lg.traduire(cle, "en", **v)
 
 ok, ko = 0, []
 
@@ -42,11 +51,17 @@ verifier("remise annuelle Particulier = 30 %", part.economie_annuelle, 30)
 # 12 x 29 = 348 $. (348-249)/348 = 28,4 % -> 28 %.
 verifier("remise annuelle Entreprise = 28 %", ent.economie_annuelle, 28)
 
-verifier("affichage mensuel", part.prix_affiche(Periode.MENSUELLE), "7 $ par mois")
-verifier("affichage annuel", part.prix_affiche(Periode.ANNUELLE), "59 $ par an")
-verifier("Découverte affiché gratuit",
-         OFFRES[Plan.DECOUVERTE].prix_affiche(), "Gratuit")
+verifier("prix mensuel en cents", part.prix(Periode.MENSUELLE), 700)
+verifier("prix annuel en cents", part.prix(Periode.ANNUELLE), 5900)
+verifier("Découverte est gratuite", OFFRES[Plan.DECOUVERTE].gratuit, True)
 verifier("3 offres proposées à la vente", len(OFFRES_VENDUES), 3)
+
+# Les textes ne vivent plus dans le code mais dans les fichiers de langue.
+# Une cle absente se verrait immediatement : `traduire` rend la cle elle-meme.
+verifier("le nom vient d'une cle traduite", part.nom(_t), "Particulier")
+verifier("le nom se traduit", part.nom(_en), "Personal")
+verifier("aucune cle brute affichee",
+         all("." not in o.nom(_t) for o in OFFRES_VENDUES), True)
 
 # On reste sous les concurrents : PocketSmith 9,99 $ · Cash Flow Frog 33 $.
 verifier("Particulier sous PocketSmith", part.prix_mensuel < 999, True)
@@ -99,8 +114,8 @@ resilie = Abonnement(plan=Plan.ENTREPRISE, fin=demain, annule=True)
 verifier("résilié mais non échu : actif", resilie.actif(), True)
 verifier("résilié : droits conservés", resilie.autorise("entreprise"), True)
 verifier("jours restants = 30", resilie.jours_restants(), 30)
-verifier("le message dit la résiliation", "résilié" in resilie.etat(), True)
-verifier("le message donne la date restante", "30 jours" in resilie.etat(), True)
+verifier("le message dit la résiliation", "résilié" in resilie.etat(_t), True)
+verifier("le message donne la date restante", "30 jours" in resilie.etat(_t), True)
 
 sans_fin = Abonnement(plan=Plan.PARTICULIER, fin=None)
 verifier("payant sans date de fin : inactif", sans_fin.actif(), False)
@@ -179,19 +194,34 @@ print("\n6. Messages affichés")
 # ---------------------------------------------------------------------------
 
 verifier("Libre : message d'accès complet",
-         "Accès complet" in libre.etat(), True)
+         "Accès complet" in libre.etat(_t), True)
 verifier("Découverte : message de limite",
-         "90 jours" in decouverte.etat(), True)
+         "90 jours" in decouverte.etat(_t), True)
 verifier("expiré : message de fin",
-         "pris fin" in expire.etat(), True)
+         "pris fin" in expire.etat(_t), True)
 actif = Abonnement(plan=Plan.PARTICULIER, fin=demain)
 verifier("actif : message de renouvellement",
-         "renouvelé" in actif.etat(), True)
+         "renouvelé" in actif.etat(_t), True)
 
 for offre in OFFRES_VENDUES:
-    verifier(f"« {offre.nom} » a des arguments de vente",
-             len(offre.arguments) >= 3, True)
-    verifier(f"« {offre.nom} » a un résumé", bool(offre.resume), True)
+    verifier(f"« {offre.nom(_t)} » a des arguments de vente",
+             len(offre.arguments(_t)) >= 3, True)
+    verifier(f"« {offre.nom(_t)} » a un résumé", bool(offre.resume(_t)), True)
+
+# Un argument de vente non traduit ressortirait comme une cle a l'ecran.
+for code in ("fr", "en", "es", "zh"):
+    def _lang(cle, _c=code, **v):
+        return lg.traduire(cle, _c, **v)
+    manquants = [c for o in OFFRES_VENDUES
+                 for c in o.cles_arguments + (o.cle_nom, o.cle_resume)
+                 if _lang(c) == c]
+    verifier(f"{code} : toutes les cles d'offre sont traduites", manquants, [])
+
+# Chaque langue doit dire quelque chose de different : une valeur recopiee
+# du francais signifie une traduction oubliee.
+verifier("le resume differe entre fr et en",
+         OFFRES[Plan.ENTREPRISE].resume(_t) != OFFRES[Plan.ENTREPRISE].resume(_en),
+         True)
 
 
 # ---------------------------------------------------------------------------

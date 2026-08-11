@@ -156,6 +156,66 @@ for code in ("fr", "en", "es", "zh"):
         print(f"          ? {s}")
 
 
+print("\n2 bis. L'ecran d'abonnement s'affiche dans la langue choisie")
+
+# Cet ecran n'est rendu par aucun autre test : il remplace tout le corps de
+# la page et ne s'ouvre que sur demande. Un module branche nulle part est
+# exactement ce qui a laisse passer du francais en production.
+def sans_reseau(at: AppTest) -> None:
+    """
+    Fournit une configuration Stripe factice et un abonnement deja lu.
+
+    Sans cela, l'ecran interrogerait vraiment Stripe a chaque rendu : quatre
+    passages, huit appels reseau, et un test qui echoue des que la connexion
+    manque.
+    """
+    from abonnement import Abonnement, ConfigStripe, Periode, Plan
+
+    at.session_state["config_stripe"] = ConfigStripe(
+        cle_secrete="sk_test_faux",
+        prix={(p, pe): f"price_{p.value}_{pe.value}"
+              for p in (Plan.PARTICULIER, Plan.ENTREPRISE)
+              for pe in (Periode.MENSUELLE, Periode.ANNUELLE)},
+        url_retour="https://dayzon.streamlit.app")
+    at.session_state["abonnement"] = Abonnement(plan=Plan.DECOUVERTE)
+    at.session_state["page"] = "abonnement"
+
+
+for code in ("fr", "en", "es", "zh"):
+    at = AppTest.from_file("app_tresorerie.py", default_timeout=120)
+    at.session_state["langue"] = code
+    avec_donnees(at)
+    sans_reseau(at)
+    at.run()
+
+    verifier(f"{code} : l'ecran d'abonnement demarre", not at.exception)
+    if at.exception:
+        print(f"          {at.exception[0].message}")
+        continue
+
+    affiches = textes_affiches(at)
+    verifier(f"{code} : les trois formules sont rendues",
+             sum(1 for t in affiches if "dz-sc" in t) >= 3)
+
+    if code == "fr":
+        continue
+
+    restes = sorted({s for s in SENTINELLES if any(s in t for t in affiches)})
+    verifier(f"{code} : aucun texte francais residuel sur l'abonnement",
+             not restes)
+    for r in restes[:6]:
+        print(f"          · {r[:72]}")
+
+    MOTS_ABO = ("Vous ", "Votre ", "Vos ", "par mois", "par an", "Choisir",
+                "Gratuit", "n'est", "d'un")
+    suspects = sorted({t[:78] for t in affiches
+                       if any(m in t for m in MOTS_ABO)})
+    verifier(f"{code} : aucun mot francais non declare sur l'abonnement",
+             not suspects)
+    for s in suspects[:6]:
+        print(f"          ? {s}")
+
+
 print("\n3. Les valeurs internes ne dependent pas de la langue")
 
 # Une etiquette traduite ne doit jamais servir de cle : sinon changer de

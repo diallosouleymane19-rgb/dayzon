@@ -48,6 +48,15 @@ with st.sidebar:
     st.caption(commun.t("app.signature"))
 
     panneau_compte()
+
+    # L'abonnement est une page à part, pas un onglet : les onglets du profil
+    # Particulier n'existent qu'une fois des données saisies, et quelqu'un
+    # doit pouvoir s'abonner avant d'avoir rien tapé.
+    if st.button(commun.t("abo.onglet"), use_container_width=True,
+                 key="aller_abonnement"):
+        st.session_state.page = "abonnement"
+        st.rerun()
+
     st.divider()
 
     _PROFILS = ["Particulier", "Entreprise"]
@@ -166,6 +175,18 @@ with st.sidebar:
 
 st.title(commun.t("app.titre_page") + " — " +
          commun.t("app.entreprise" if entreprise else "app.particulier"))
+
+# Page d'abonnement : elle remplace tout le corps, dans les deux profils.
+# Stripe renvoie sur `?paiement=ok` — on l'ouvre alors sans rien demander,
+# sinon le règlement se terminerait sur un écran muet.
+if (st.session_state.get("page") == "abonnement"
+        or st.query_params.get("paiement")):
+    from vue_abonnement import afficher_abonnement
+    afficher_abonnement()
+    if st.button(commun.t("app.retour"), key="quitter_abonnement"):
+        st.session_state.pop("page", None)
+        st.rerun()
+    st.stop()
 
 bandeau_essai()
 

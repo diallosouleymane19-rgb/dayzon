@@ -34,6 +34,18 @@ from datetime import date, datetime, timedelta
 from enum import Enum
 
 
+def _sans_traduction(cle: str, **variables) -> str:
+    """
+    Repli quand l'appelant n'a pas passé de fonction de traduction.
+
+    On ne rend pas la clé brute : un test ou un script appelé sans contexte
+    doit tout de même lire une phrase. Le français sert de langue de repli,
+    comme partout ailleurs dans l'application.
+    """
+    import langues
+    return langues.traduire(cle, langues.LANGUE_PAR_DEFAUT, **variables)
+
+
 class Plan(str, Enum):
     LIBRE = "libre"                 # aucun paiement configuré, ou démonstration
     DECOUVERTE = "decouverte"       # gratuit, limité
@@ -57,10 +69,15 @@ class Offre:
 
     Les limites sont volontairement peu nombreuses. Une grille compliquée se
     retourne contre celui qui la vend : l'acheteur hésite, puis renonce.
+
+    Les textes ne sont pas écrits ici mais désignés par une clé : `cle_nom`,
+    `cle_resume`, `cles_arguments`. Dayzon se vend dans quatre langues ; une
+    grille tarifaire rédigée en français dans le code serait restée française
+    partout. La traduction se fait à l'affichage, par la vue.
     """
     plan: Plan
-    nom: str
-    resume: str
+    cle_nom: str
+    cle_resume: str
     prix_mensuel: int = 0           # en cents, monnaie de facturation
     prix_annuel: int = 0
     devise: str = "usd"
@@ -70,7 +87,7 @@ class Offre:
     scenarios: bool = False
     exports: bool = False
     profil_entreprise: bool = False
-    arguments: tuple[str, ...] = ()
+    cles_arguments: tuple[str, ...] = ()
 
     @property
     def gratuit(self) -> bool:
@@ -80,13 +97,14 @@ class Offre:
         return (self.prix_annuel if periode is Periode.ANNUELLE
                 else self.prix_mensuel)
 
-    def prix_affiche(self, periode: Periode = Periode.MENSUELLE) -> str:
-        if self.gratuit:
-            return "Gratuit"
-        symbole = {"usd": "$", "eur": "€", "gbp": "£"}.get(self.devise, self.devise)
-        if periode is Periode.ANNUELLE:
-            return f"{self.prix_annuel / 100:.0f} {symbole} par an"
-        return f"{self.prix_mensuel / 100:.0f} {symbole} par mois"
+    def nom(self, t) -> str:
+        return t(self.cle_nom)
+
+    def resume(self, t) -> str:
+        return t(self.cle_resume)
+
+    def arguments(self, t) -> tuple[str, ...]:
+        return tuple(t(c) for c in self.cles_arguments)
 
     @property
     def economie_annuelle(self) -> int:
@@ -101,23 +119,20 @@ OFFRES: dict[Plan, Offre] = {
 
     Plan.DECOUVERTE: Offre(
         plan=Plan.DECOUVERTE,
-        nom="Découverte",
-        resume="Pour voir si Dayzon vous parle.",
+        cle_nom="plan.decouverte.nom",
+        cle_resume="plan.decouverte.resume",
         jours_projection=90,
         nb_fichiers=1,
         scenarios=False,
         exports=False,
         profil_entreprise=False,
-        arguments=(
-            "Calendrier de trésorerie sur 90 jours",
-            "Un relevé bancaire importé",
-            "Analyse de vos dépenses en langage clair",
-        )),
+        cles_arguments=("plan.decouverte.arg1", "plan.decouverte.arg2",
+                        "plan.decouverte.arg3")),
 
     Plan.PARTICULIER: Offre(
         plan=Plan.PARTICULIER,
-        nom="Particulier",
-        resume="Votre budget, votre solde à venir, vos scénarios.",
+        cle_nom="plan.particulier.nom",
+        cle_resume="plan.particulier.resume",
         prix_mensuel=700,          # 7 $
         prix_annuel=5900,          # 59 $  — 30 % de moins que 12 × 7 $
         jours_projection=365,
@@ -125,18 +140,14 @@ OFFRES: dict[Plan, Offre] = {
         scenarios=True,
         exports=True,
         profil_entreprise=False,
-        arguments=(
-            "Calendrier sur 12 mois",
-            "Import illimité de relevés",
-            "Scénarios « et si ? »",
-            "Rapports Excel, PDF et Word",
-            "Multidevise",
-        )),
+        cles_arguments=("plan.particulier.arg1", "plan.particulier.arg2",
+                        "plan.particulier.arg3", "plan.particulier.arg4",
+                        "plan.particulier.arg5")),
 
     Plan.ENTREPRISE: Offre(
         plan=Plan.ENTREPRISE,
-        nom="Entreprise",
-        resume="Vos indicateurs, vos clients, votre prévision.",
+        cle_nom="plan.entreprise.nom",
+        cle_resume="plan.entreprise.resume",
         prix_mensuel=2900,         # 29 $
         prix_annuel=24900,         # 249 $ — 28 % de moins que 12 × 29 $
         jours_projection=730,
@@ -144,20 +155,15 @@ OFFRES: dict[Plan, Offre] = {
         scenarios=True,
         exports=True,
         profil_entreprise=True,
-        arguments=(
-            "Tout le plan Particulier",
-            "Runway, point d'équilibre, marge",
-            "DSO, DPO, impayés, dépendance client",
-            "Import des factures clients et fournisseurs",
-            "Prévision sur 24 mois",
-            "Rapport destiné à un banquier ou un investisseur",
-        )),
+        cles_arguments=("plan.entreprise.arg1", "plan.entreprise.arg2",
+                        "plan.entreprise.arg3", "plan.entreprise.arg4",
+                        "plan.entreprise.arg5", "plan.entreprise.arg6")),
 
     # Plan interne : aucun paiement configuré, ou démonstration commerciale.
     Plan.LIBRE: Offre(
         plan=Plan.LIBRE,
-        nom="Accès complet",
-        resume="Toutes les fonctions, sans restriction.",
+        cle_nom="plan.libre.nom",
+        cle_resume="plan.libre.resume",
         jours_projection=730,
         nb_fichiers=999,
         scenarios=True,
@@ -231,24 +237,31 @@ class Abonnement:
     def limite_fichiers(self, au: date | None = None) -> int:
         return self.offre_effective(au).nb_fichiers
 
-    def etat(self, au: date | None = None) -> str:
-        """Une phrase à afficher, sans jargon."""
+    def etat(self, t=None, au: date | None = None, date_lisible=None) -> str:
+        """
+        Une phrase à afficher, sans jargon.
+
+        `t` traduit, `date_lisible` met la date au format du pays. Les deux
+        sont injectés : ce module ne connaît ni la langue de lecture ni la
+        convention de date, et « 05/09 » se lit 5 septembre en France et
+        9 mai aux États-Unis.
+        """
+        t = t or _sans_traduction
         au = au or date.today()
+        ecrire = date_lisible or (lambda j: j.strftime("%d/%m/%Y"))
+
         if self.plan is Plan.LIBRE:
-            return "Accès complet — aucun paiement configuré."
+            return t("abo.etat_libre")
         if self.plan is Plan.DECOUVERTE:
-            return "Plan Découverte — calendrier sur 90 jours, un fichier."
+            return t("abo.etat_decouverte")
         if not self.actif(au):
-            return (f"Votre abonnement {self.offre.nom} a pris fin le "
-                    f"{self.fin.strftime('%d/%m/%Y')}. "
-                    f"Vous êtes revenu au plan Découverte.")
-        restants = self.jours_restants(au)
+            return t("abo.etat_expire", plan=self.offre.nom(t),
+                     date=ecrire(self.fin) if self.fin else "")
         if self.annule:
-            return (f"Abonnement {self.offre.nom} résilié. Vous en gardez "
-                    f"l'usage encore {restants} jours, jusqu'au "
-                    f"{self.fin.strftime('%d/%m/%Y')}.")
-        return (f"Abonnement {self.offre.nom} actif, renouvelé le "
-                f"{self.fin.strftime('%d/%m/%Y')}.")
+            return t("abo.etat_resilie", plan=self.offre.nom(t),
+                     jours=self.jours_restants(au), date=ecrire(self.fin))
+        return t("abo.etat_actif", plan=self.offre.nom(t),
+                 date=ecrire(self.fin))
 
 
 # ---------------------------------------------------------------------------
@@ -322,7 +335,8 @@ class ErreurPaiement(Exception):
 
 
 def ouvrir_paiement(plan: Plan, periode: Periode, config: ConfigStripe,
-                    email: str = "", identifiant_client: str = "") -> str:
+                    t=None, email: str = "",
+                    identifiant_client: str = "") -> str:
     """
     Crée une session de paiement Stripe et renvoie l'adresse où envoyer
     l'utilisateur.
@@ -330,22 +344,21 @@ def ouvrir_paiement(plan: Plan, periode: Periode, config: ConfigStripe,
     Aucune donnée de carte ne transite par Dayzon : la saisie a lieu sur les
     pages de Stripe. C'est ce qui nous dispense des obligations PCI-DSS.
     """
+    t = t or _sans_traduction
+
     if not config.configure:
-        raise ErreurPaiement(
-            "Le paiement n'est pas encore configuré sur cette installation.")
+        raise ErreurPaiement(t("abo.err_non_configure"))
 
     identifiant_prix = config.identifiant_prix(plan, periode)
     if not identifiant_prix:
-        raise ErreurPaiement(
-            f"Aucun tarif n'est configuré pour le plan {OFFRES[plan].nom} "
-            f"en formule {periode.value}.")
+        raise ErreurPaiement(t("abo.err_tarif_absent",
+                               plan=OFFRES[plan].nom(t),
+                               periode=t("abo." + periode.value)))
 
     try:
         import stripe
     except ImportError:
-        raise ErreurPaiement(
-            "La bibliothèque Stripe n'est pas installée. "
-            "Lancez : py -m pip install stripe")
+        raise ErreurPaiement(t("abo.err_stripe_absent"))
 
     stripe.api_key = config.cle_secrete
 
@@ -368,9 +381,33 @@ def ouvrir_paiement(plan: Plan, periode: Periode, config: ConfigStripe,
         session = stripe.checkout.Session.create(
             **{k: v for k, v in parametres.items() if v is not None})
     except Exception as erreur:
-        raise ErreurPaiement(f"Stripe a refusé la demande : {erreur}")
+        raise ErreurPaiement(t("abo.err_stripe_refus", erreur=erreur))
 
     return session.url
+
+
+def trouver_client(email: str, config: ConfigStripe) -> str:
+    """
+    Retrouve l'identifiant du client Stripe à partir de son adresse.
+
+    Sans cela, l'application ne saurait rien de ce qu'un visiteur vient de
+    payer tant que le webhook n'est pas branché : il réglerait son
+    abonnement et retrouverait l'écran de vente inchangé. Une recherche par
+    adresse coûte un appel et évite ce moment-là.
+
+    Rend une chaîne vide si personne ne correspond, ou si Stripe est
+    indisponible : ce n'est pas une erreur, c'est le cas du visiteur qui
+    n'a jamais payé.
+    """
+    if not config.configure or not email:
+        return ""
+    try:
+        import stripe
+        stripe.api_key = config.cle_secrete
+        clients = stripe.Customer.list(email=email, limit=1)
+    except Exception:
+        return ""
+    return clients.data[0].id if clients.data else ""
 
 
 def lire_abonnement(identifiant_client: str, config: ConfigStripe) -> Abonnement:
@@ -433,14 +470,16 @@ def lire_abonnement(identifiant_client: str, config: ConfigStripe) -> Abonnement
     )
 
 
-def portail_client(identifiant_client: str, config: ConfigStripe) -> str:
+def portail_client(identifiant_client: str, config: ConfigStripe,
+                   t=None) -> str:
     """
     Adresse du portail Stripe où l'utilisateur gère lui-même sa carte,
     ses factures et sa résiliation. Nous n'avons rien à construire pour cela,
     et surtout rien à stocker.
     """
+    t = t or _sans_traduction
     if not config.configure or not identifiant_client:
-        raise ErreurPaiement("Aucun compte de facturation n'est rattaché.")
+        raise ErreurPaiement(t("abo.err_sans_facturation"))
     try:
         import stripe
         stripe.api_key = config.cle_secrete
@@ -448,4 +487,4 @@ def portail_client(identifiant_client: str, config: ConfigStripe) -> str:
             customer=identifiant_client, return_url=config.url_retour)
         return session.url
     except Exception as erreur:
-        raise ErreurPaiement(f"Portail indisponible : {erreur}")
+        raise ErreurPaiement(t("abo.err_portail", erreur=erreur))
