@@ -84,21 +84,36 @@ with st.sidebar:
 
     if fichier is not None and st.button(commun.t("app.analyser"),
                                          use_container_width=True, type="primary"):
-        try:
-            from import_intelligent import analyser
-            resultat = analyser(fichier, fichier.name)
-            st.session_state.analyse = resultat
-            st.session_state.mouvements = resultat["mouvements"]
-            st.session_state.nom_fichier = fichier.name
-            st.rerun()
-        except Exception as erreur:
-            st.error(commun.t("app.lecture_ko", erreur=erreur))
+        # La formule Decouverte n'ouvre qu'un fichier. On verifie avant de
+        # lire : faire travailler quelqu'un puis lui refuser le resultat
+        # serait la pire des facons de le lui apprendre.
+        from vue_abonnement import limite_fichiers
+
+        deja = st.session_state.get("fichiers_importes", 0)
+        if deja >= limite_fichiers():
+            st.warning(commun.t("app.limite_fichiers", n=limite_fichiers()))
+            if st.button(commun.t("abo.voir_formules"), key="limite_fichier"):
+                st.session_state.page = "abonnement"
+                st.rerun()
+        else:
+            try:
+                from import_intelligent import analyser
+                resultat = analyser(fichier, fichier.name)
+                st.session_state.analyse = resultat
+                st.session_state.mouvements = resultat["mouvements"]
+                st.session_state.nom_fichier = fichier.name
+                st.session_state.fichiers_importes = deja + 1
+                st.rerun()
+            except Exception as erreur:
+                st.error(commun.t("app.lecture_ko", erreur=erreur))
 
     st.divider()
 
     if entreprise:
-        from vue_entreprise import barre_laterale_entreprise
-        barre_laterale_entreprise()
+        from vue_abonnement import autorise
+        if autorise("entreprise"):
+            from vue_entreprise import barre_laterale_entreprise
+            barre_laterale_entreprise()
 
     st.subheader(commun.t("app.ajout_echeance" if entreprise else "app.ajout_op"))
 
@@ -253,8 +268,10 @@ if "analyse" in st.session_state:
 # ===========================================================================
 
 if entreprise:
-    from vue_entreprise import afficher_entreprise
-    afficher_entreprise()
+    from vue_abonnement import mur
+    if mur("entreprise"):
+        from vue_entreprise import afficher_entreprise
+        afficher_entreprise()
 
 # ===========================================================================
 # PROFIL PARTICULIER
@@ -317,8 +334,10 @@ else:
         onglet_ana = onglet_rap = None
 
     with onglet_sce:
-        from vue_scenarios import afficher_scenarios
-        afficher_scenarios("Particulier")
+        from vue_abonnement import mur
+        if mur("scenarios"):
+            from vue_scenarios import afficher_scenarios
+            afficher_scenarios("Particulier")
 
     # --- Calendrier ---
     with onglet_cal:
@@ -384,61 +403,63 @@ else:
     # --- Rapport ---
     if onglet_rap is not None:
         with onglet_rap:
-            st.subheader(commun.t("rap.telecharger"))
-            st.caption(commun.t("rap.aide"))
+            from vue_abonnement import mur
+            if mur("exports"):
+                st.subheader(commun.t("rap.telecharger"))
+                st.caption(commun.t("rap.aide"))
 
-            nom_rapport = st.text_input(commun.t("rap.titre_rapport"),
-                                        value=commun.t("rap.valeur_titre"))
-            horodatage = date.today().strftime("%Y%m%d")
+                nom_rapport = st.text_input(commun.t("rap.titre_rapport"),
+                                            value=commun.t("rap.valeur_titre"))
+                horodatage = date.today().strftime("%Y%m%d")
 
-            r1, r2, r3 = st.columns(3)
-            try:
-                from export_rapport import exporter_excel, exporter_pdf, exporter_word
-                with r1:
-                    st.download_button(
-                        "📊 Excel",
-                        data=exporter_excel(syn, st.session_state.mouvements,
-                                            devise=st.session_state.devise,
-                                            titre=nom_rapport),
-                        file_name=f"analyse_{horodatage}.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument."
-                             "spreadsheetml.sheet",
-                        use_container_width=True, type="primary")
-                    st.caption(commun.t("rap.excel_aide"))
-                with r2:
-                    st.download_button(
-                        "📄 PDF",
-                        data=exporter_pdf(syn, devise=st.session_state.devise,
-                                          titre=nom_rapport),
-                        file_name=f"analyse_{horodatage}.pdf",
-                        mime="application/pdf", use_container_width=True)
-                    st.caption(commun.t("rap.pdf_aide"))
-                with r3:
-                    st.download_button(
-                        "📝 Word",
-                        data=exporter_word(syn, devise=st.session_state.devise,
-                                           titre=nom_rapport),
-                        file_name=f"analyse_{horodatage}.docx",
-                        mime="application/vnd.openxmlformats-officedocument."
-                             "wordprocessingml.document",
-                        use_container_width=True)
-                    st.caption(commun.t("rap.word_aide"))
-            except Exception as err:
-                st.error(commun.t("rap.export_ko", erreur=err))
-                st.caption("Installez les dépendances :  "
-                           "py -m pip install openpyxl reportlab python-docx")
+                r1, r2, r3 = st.columns(3)
+                try:
+                    from export_rapport import exporter_excel, exporter_pdf, exporter_word
+                    with r1:
+                        st.download_button(
+                            "📊 Excel",
+                            data=exporter_excel(syn, st.session_state.mouvements,
+                                                devise=st.session_state.devise,
+                                                titre=nom_rapport),
+                            file_name=f"analyse_{horodatage}.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument."
+                                 "spreadsheetml.sheet",
+                            use_container_width=True, type="primary")
+                        st.caption(commun.t("rap.excel_aide"))
+                    with r2:
+                        st.download_button(
+                            "📄 PDF",
+                            data=exporter_pdf(syn, devise=st.session_state.devise,
+                                              titre=nom_rapport),
+                            file_name=f"analyse_{horodatage}.pdf",
+                            mime="application/pdf", use_container_width=True)
+                        st.caption(commun.t("rap.pdf_aide"))
+                    with r3:
+                        st.download_button(
+                            "📝 Word",
+                            data=exporter_word(syn, devise=st.session_state.devise,
+                                               titre=nom_rapport),
+                            file_name=f"analyse_{horodatage}.docx",
+                            mime="application/vnd.openxmlformats-officedocument."
+                                 "wordprocessingml.document",
+                            use_container_width=True)
+                        st.caption(commun.t("rap.word_aide"))
+                except Exception as err:
+                    st.error(commun.t("rap.export_ko", erreur=err))
+                    st.caption("Installez les dépendances :  "
+                               "py -m pip install openpyxl reportlab python-docx")
 
-            st.divider()
-            st.subheader(commun.t("rap.apercu"))
-            st.dataframe(pd.DataFrame([{
-                commun.t("col.poste"): p.nom,
-                commun.t("col.categorie"): p.categorie,
-                commun.t("col.type"): commun.t("col.charge_fixe") if p.fixe else (
-                    commun.t("app.entree") if p.est_une_entree
-                    else commun.t("col.variable")),
-                commun.t("col.nombre"): p.nombre,
-                commun.t("col.par_mois"): float(p.par_mois),
-            } for p in syn.postes]), use_container_width=True, hide_index=True)
+                st.divider()
+                st.subheader(commun.t("rap.apercu"))
+                st.dataframe(pd.DataFrame([{
+                    commun.t("col.poste"): p.nom,
+                    commun.t("col.categorie"): p.categorie,
+                    commun.t("col.type"): commun.t("col.charge_fixe") if p.fixe else (
+                        commun.t("app.entree") if p.est_une_entree
+                        else commun.t("col.variable")),
+                    commun.t("col.nombre"): p.nombre,
+                    commun.t("col.par_mois"): float(p.par_mois),
+                } for p in syn.postes]), use_container_width=True, hide_index=True)
 
 
 st.caption("Dayzon — SMD Global Consulting LLC · " +

@@ -89,6 +89,55 @@ def oublier_etat() -> None:
 # Affichage d'un prix
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Droits — ce que la formule en cours autorise
+# ---------------------------------------------------------------------------
+#
+# Ces quatre fonctions sont le seul point par lequel les ecrans interrogent
+# l'abonnement. Les vues n'importent jamais `abonnement` directement : elles
+# demandent « ai-je le droit ? », pas « quel est le plan ? ». Le jour ou la
+# grille change, rien ne bouge dans les ecrans.
+
+def offre_courante() -> ab.Offre:
+    return etat_abonnement().offre_effective()
+
+
+def autorise(fonction: str) -> bool:
+    """« scenarios », « exports », « entreprise »."""
+    return etat_abonnement().autorise(fonction)
+
+
+def limite_jours() -> int:
+    return etat_abonnement().limite_jours()
+
+
+def limite_fichiers() -> int:
+    return etat_abonnement().limite_fichiers()
+
+
+def mur(fonction: str) -> bool:
+    """
+    Affiche l'encart « cette fonction demande une formule payante » et rend
+    `False` quand l'acces est ferme, `True` quand il est ouvert.
+
+    Le message nomme la formule qui debloque et propose d'y aller. Un mur
+    qui dit seulement « non » fait partir ; un mur qui dit « voici comment »
+    vend.
+    """
+    if autorise(fonction):
+        return True
+
+    requis = (ab.OFFRES[Plan.ENTREPRISE] if fonction == "entreprise"
+              else ab.OFFRES[Plan.PARTICULIER])
+    theme.message("info", commun.t("abo.mur_titre"),
+                  commun.t("abo.mur_texte", plan=requis.nom(commun.t)))
+    if st.button(commun.t("abo.voir_formules"), key=f"mur_{fonction}",
+                 type="primary"):
+        st.session_state.page = "abonnement"
+        st.rerun()
+    return False
+
+
 def bandeau_abonnement() -> None:
     """
     Le décompte de l'essai, en haut de l'application.

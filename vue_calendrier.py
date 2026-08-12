@@ -36,10 +36,20 @@ def afficher_calendrier(cle: str = "part", mots: dict | None = None) -> None:
         debut = st.date_input(commun.t("cal.a_partir_du"), value=date.today(),
                               key=f"deb_{cle}")
     with col_b:
+        # L'horizon est la premiere limite de la formule : 90 jours en
+        # Decouverte, un an au plan Particulier, deux ans au plan Entreprise.
+        # On retire les crans interdits plutot que de les afficher grises :
+        # un cran qu'on ne peut pas atteindre se lit comme un defaut.
+        from vue_abonnement import limite_jours
+
+        plafond = limite_jours()
+        crans = [j for j in (30, 60, 90, 180, 365, 730) if j <= plafond]
         horizon = st.select_slider(commun.t("cal.horizon"),
-                                   options=[30, 60, 90, 180, 365], value=90,
+                                   options=crans, value=min(90, crans[-1]),
                                    format_func=lambda j: commun.t("cal.jours", n=j),
                                    key=f"hor_{cle}")
+        if plafond < 730:
+            st.caption(commun.t("cal.horizon_limite", n=plafond))
     with col_c:
         inclure = st.toggle(mots.get("incertain", commun.t("cal.incertain")),
                             value=True, key=f"inc_{cle}",
