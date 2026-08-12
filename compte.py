@@ -360,6 +360,52 @@ def espace_id() -> str:
 # virgule flottante ; sur une application dont la règle est « jamais de
 # float », cela réintroduirait l'erreur qu'on écarte partout ailleurs.
 
+def lire_abonnement_en_base():
+    """
+    L'abonnement inscrit par le webhook Stripe, ou `None`.
+
+    Rend `None` — et jamais une exception — quand la table n'existe pas,
+    quand personne n'est connecté, ou quand la base est injoignable. Un
+    incident de lecture ne doit pas fermer l'accès à quelqu'un qui a payé :
+    l'appelant retombera sur Stripe, puis sur la formule gratuite.
+    """
+    if not connecte():
+        return None
+    from abonnement import Abonnement, Periode, Plan
+
+    try:
+        reponse = client().table("abonnements").select("*") \
+            .eq("email", session().email.lower()).limit(1).execute()
+    except Exception:
+        return None
+
+    lignes = reponse.data or []
+    if not lignes:
+        return None
+    ligne = lignes[0]
+
+    valeurs = {p.value for p in Plan}
+    plan = Plan(ligne["plan"]) if ligne.get("plan") in valeurs else Plan.DECOUVERTE
+    periodes = {p.value for p in Periode}
+    periode = (Periode(ligne["periode"]) if ligne.get("periode") in periodes
+               else Periode.MENSUELLE)
+
+    fin = None
+    if ligne.get("fin"):
+        try:
+            fin = date.fromisoformat(str(ligne["fin"])[:10])
+        except ValueError:
+            fin = None
+
+    return Abonnement(
+        plan=plan,
+        periode=periode,
+        fin=fin,
+        identifiant_client=ligne.get("client_stripe") or "",
+        identifiant_abonnement=ligne.get("abonnement_stripe") or "",
+        annule=bool(ligne.get("annule")))
+
+
 def charger_espace() -> dict:
     """Ramène tout ce qui appartient à l'utilisateur connecté."""
     if not connecte():

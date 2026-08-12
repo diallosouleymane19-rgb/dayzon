@@ -61,8 +61,22 @@ def etat_abonnement() -> ab.Abonnement:
         return st.session_state.abonnement
 
     s = compte.session()
-    identifiant = ab.trouver_client(s.email, config)
-    paye = ab.lire_abonnement(identifiant, config) if identifiant else None
+
+    # La base d'abord : le webhook y a inscrit la formule payée. C'est une
+    # lecture locale, immédiate, qui survit à une indisponibilité de Stripe.
+    paye = compte.lire_abonnement_en_base()
+
+    # Stripe ensuite, seulement si la base ne sait rien. Cela couvre les
+    # premières minutes après un paiement, avant que le webhook ait été
+    # traité, et les installations où il n'est pas branché.
+    identifiant = paye.identifiant_client if paye else ""
+    if paye is None or paye.plan in (Plan.DECOUVERTE, Plan.LIBRE):
+        identifiant = identifiant or ab.trouver_client(s.email, config)
+        depuis_stripe = (ab.lire_abonnement(identifiant, config)
+                         if identifiant else None)
+        if depuis_stripe is not None and depuis_stripe.plan in (
+                Plan.PARTICULIER, Plan.ENTREPRISE):
+            paye = depuis_stripe
 
     # Un abonnement payant l'emporte toujours sur l'essai : quelqu'un qui
     # paie le troisième jour ne doit pas retomber en Découverte le
