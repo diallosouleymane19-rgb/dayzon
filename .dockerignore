@@ -1,0 +1,21 @@
+# Les secrets ne montent jamais dans une image : ils sont poses comme
+# variables d'environnement chez l'hebergeur.
+.streamlit/secrets.toml
+.env
+
+.git
+.gitignore
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Les tests et la documentation n'ont rien a faire en production.
+test_*.py
+superviseur/
+marque/*.png
+*.md
+!juridique/*.md
+
+.DS_Store
+Thumbs.db

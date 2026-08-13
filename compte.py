@@ -75,13 +75,23 @@ def configuration() -> Configuration:
     """
     Lit la configuration. Son absence n'est pas une erreur : l'application
     doit rester utilisable sans compte, en local comme en démonstration.
+
+    Deux sources, dans cet ordre : le fichier de secrets, puis les
+    variables d'environnement. La seconde existe parce qu'un hébergeur
+    comme Render ne connaît pas les fichiers de secrets de Streamlit — il
+    ne pose que des variables.
     """
+    import os
+
     try:
         secrets = st.secrets.get("supabase", {})
     except Exception:
-        return Configuration()
-    return Configuration(url=str(secrets.get("url", "")),
-                         cle_publique=str(secrets.get("cle_publique", "")))
+        secrets = {}
+
+    url = str(secrets.get("url", "") or os.environ.get("SUPABASE_URL", ""))
+    cle = str(secrets.get("cle_publique", "")
+              or os.environ.get("SUPABASE_CLE_PUBLIQUE", ""))
+    return Configuration(url=url, cle_publique=cle)
 
 
 @st.cache_resource(show_spinner=False)

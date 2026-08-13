@@ -1,0 +1,34 @@
+# Deploiement Render — PrevuFlow
+#
+# Le plan « starter » maintient le service allume en permanence. Le plan
+# gratuit s'endort au bout de quinze minutes : c'est precisement ce qu'on
+# fuit en quittant Streamlit Community Cloud.
+services:
+  - type: web
+    name: prevuflow
+    runtime: docker
+    plan: starter
+    region: frankfurt
+    healthCheckPath: /_stcore/health
+    autoDeploy: true
+    envVars:
+      # Les valeurs sont saisies dans l'interface de Render, jamais ici :
+      # ce fichier est public.
+      - key: PREVUFLOW_HEBERGE
+        value: "1"
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_CLE_PUBLIQUE
+        sync: false
+      - key: PREVUFLOW_CLE_SECRETE
+        sync: false
+      - key: PREVUFLOW_URL_RETOUR
+        sync: false
+      - key: PREVUFLOW_PRIX_PARTICULIER_MENSUEL
+        sync: false
+      - key: PREVUFLOW_PRIX_PARTICULIER_ANNUEL
+        sync: false
+      - key: PREVUFLOW_PRIX_ENTREPRISE_MENSUEL
+        sync: false
+      - key: PREVUFLOW_PRIX_ENTREPRISE_ANNUEL
+        sync: false
