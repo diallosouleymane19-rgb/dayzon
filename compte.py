@@ -211,6 +211,11 @@ def _ouvrir(reponse) -> None:
     )
     st.session_state.session_utilisateur.espace_id = _espace_courant()
 
+    # Une session ouverte efface ce qui appartenait au visiteur anonyme :
+    # sa formule et son décompte d'imports n'ont plus cours.
+    for cle in ("abonnement", "imports_du_mois", "fichiers_importes"):
+        st.session_state.pop(cle, None)
+
 
 def _date_inscription(utilisateur) -> date | None:
     """
@@ -246,9 +251,13 @@ def deconnecter() -> None:
     except Exception:
         pass
 
+    # « abonnement » et « imports_du_mois » sont propres à la personne
+    # connectée : les laisser ferait hériter le visiteur suivant de la
+    # formule et du décompte du précédent.
     for cle in ("session_utilisateur", "operations", "portefeuille", "taux",
                 "mouvements", "analyse", "lecture_fc", "lecture_ff",
-                "scenarios_perso", "_initialise"):
+                "scenarios_perso", "_initialise", "abonnement",
+                "imports_du_mois", "fichiers_importes"):
         st.session_state.pop(cle, None)
 
 
@@ -404,6 +413,47 @@ def lire_abonnement_en_base():
         identifiant_client=ligne.get("client_stripe") or "",
         identifiant_abonnement=ligne.get("abonnement_stripe") or "",
         annule=bool(ligne.get("annule")))
+
+
+def imports_du_mois() -> int:
+    """
+    Le nombre de fichiers importés depuis le premier du mois.
+
+    Rend 0 quand la lecture échoue ou que personne n'est connecté : une
+    panne de notre côté doit laisser passer l'import, pas le refuser. La
+    limite protège une grille tarifaire, elle ne garde pas un coffre.
+    """
+    if not connecte():
+        return 0
+    debut = date.today().replace(day=1).isoformat()
+    try:
+        reponse = client().table("imports_mensuels").select("nombre") \
+            .eq("proprietaire_id", session().identifiant) \
+            .eq("mois", debut).limit(1).execute()
+    except Exception:
+        return 0
+    lignes = reponse.data or []
+    return int(lignes[0].get("nombre", 0)) if lignes else 0
+
+
+def enregistrer_import() -> int:
+    """
+    Compte un fichier de plus. Rend le total du mois.
+
+    L'écriture passe par une fonction en base : la table est en lecture
+    seule pour l'utilisateur, sans quoi le compteur se remettrait à zéro
+    depuis le navigateur.
+    """
+    if not connecte():
+        return 0
+    try:
+        reponse = client().rpc("enregistrer_import").execute()
+    except Exception:
+        return 0
+    try:
+        return int(reponse.data)
+    except (TypeError, ValueError):
+        return 0
 
 
 def charger_espace() -> dict:

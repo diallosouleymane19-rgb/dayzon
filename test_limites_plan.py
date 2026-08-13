@@ -172,6 +172,69 @@ verifier("essai echu : l'horizon retombe a 90 jours",
          len(crans_horizon(at)) == 3)
 
 
+print("\n4 bis. Le decompte des fichiers survit au rechargement")
+
+# Le compteur vivait dans la session : recharger la page le remettait a
+# zero, et la limite d'un fichier de la formule Decouverte se contournait
+# sans meme le vouloir.
+import commun                                                   # noqa: E402
+import compte                                                   # noqa: E402
+import streamlit as _st                                         # noqa: E402
+
+_vrai_connecte = compte.connecte
+_vrai_lire = compte.imports_du_mois
+_vrai_ecrire = compte.enregistrer_import
+_en_base = {"nombre": 0}
+
+try:
+    # Personne connectee : le compteur reste dans la session.
+    compte.connecte = lambda: False
+    for cle in ("imports_du_mois", "fichiers_importes"):
+        _st.session_state.pop(cle, None)
+    verifier("sans compte : le decompte part de zero",
+             commun.fichiers_importes() == 0)
+    commun.compter_import()
+    verifier("sans compte : le decompte monte a 1",
+             commun.fichiers_importes() == 1)
+
+    # Avec un compte : la base fait foi, et la session ne fait que
+    # transporter la valeur lue.
+    compte.connecte = lambda: True
+    compte.imports_du_mois = lambda: _en_base["nombre"]
+
+    def _incrementer():
+        _en_base["nombre"] += 1
+        return _en_base["nombre"]
+
+    compte.enregistrer_import = _incrementer
+
+    for cle in ("imports_du_mois", "fichiers_importes"):
+        _st.session_state.pop(cle, None)
+    verifier("avec compte : le decompte vient de la base",
+             commun.fichiers_importes() == 0)
+    commun.compter_import()
+    verifier("avec compte : l'import est inscrit en base",
+             _en_base["nombre"] == 1)
+
+    # Le rechargement : la session est videe, la base ne l'est pas.
+    for cle in ("imports_du_mois", "fichiers_importes"):
+        _st.session_state.pop(cle, None)
+    verifier("apres rechargement : le decompte tient",
+             commun.fichiers_importes() == 1)
+
+    # Une base injoignable ne doit pas fermer l'import.
+    compte.imports_du_mois = lambda: 0
+    _st.session_state.pop("imports_du_mois", None)
+    verifier("base illisible : l'import reste possible",
+             commun.fichiers_importes() == 0)
+finally:
+    compte.connecte = _vrai_connecte
+    compte.imports_du_mois = _vrai_lire
+    compte.enregistrer_import = _vrai_ecrire
+    for cle in ("imports_du_mois", "fichiers_importes"):
+        _st.session_state.pop(cle, None)
+
+
 print("\n5. Sans paiement configure, rien n'est bride")
 
 # Une installation locale, une demonstration commerciale : tant qu'aucune

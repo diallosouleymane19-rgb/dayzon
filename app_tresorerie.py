@@ -89,7 +89,7 @@ with st.sidebar:
         # serait la pire des facons de le lui apprendre.
         from vue_abonnement import limite_fichiers
 
-        deja = st.session_state.get("fichiers_importes", 0)
+        deja = commun.fichiers_importes()
         if deja >= limite_fichiers():
             st.warning(commun.t("app.limite_fichiers", n=limite_fichiers()))
             if st.button(commun.t("abo.voir_formules"), key="limite_fichier"):
@@ -102,7 +102,7 @@ with st.sidebar:
                 st.session_state.analyse = resultat
                 st.session_state.mouvements = resultat["mouvements"]
                 st.session_state.nom_fichier = fichier.name
-                st.session_state.fichiers_importes = deja + 1
+                commun.compter_import()
                 st.rerun()
             except Exception as erreur:
                 st.error(commun.t("app.lecture_ko", erreur=erreur))

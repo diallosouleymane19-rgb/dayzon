@@ -466,6 +466,42 @@ def importer_octets(donnees_brutes: bytes) -> sv.Donnees:
 
 
 # ---------------------------------------------------------------------------
+# Fichiers importés — le décompte de la formule
+# ---------------------------------------------------------------------------
+
+def fichiers_importes() -> int:
+    """
+    Combien de fichiers ont été importés ce mois-ci.
+
+    En base pour qui a un compte, en session sinon. Le compteur vivait
+    uniquement dans la session : un rechargement de page le remettait à
+    zéro, et la limite d'un fichier se contournait sans le vouloir.
+
+    Le visiteur sans compte garde le compteur de session. Contourner la
+    limite lui coûterait de tout ressaisir, puisqu'il perd aussi ses
+    données au rechargement.
+    """
+    import compte
+
+    if compte.connecte():
+        if "imports_du_mois" not in st.session_state:
+            st.session_state.imports_du_mois = compte.imports_du_mois()
+        return st.session_state.imports_du_mois
+    return st.session_state.get("fichiers_importes", 0)
+
+
+def compter_import() -> None:
+    """Enregistre un fichier de plus, en base si un compte existe."""
+    import compte
+
+    if compte.connecte():
+        st.session_state.imports_du_mois = compte.enregistrer_import()
+    else:
+        st.session_state.fichiers_importes = \
+            st.session_state.get("fichiers_importes", 0) + 1
+
+
+# ---------------------------------------------------------------------------
 # Langue
 # ---------------------------------------------------------------------------
 
