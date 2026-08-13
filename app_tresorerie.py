@@ -37,6 +37,39 @@ theme.appliquer()
 # Prépare la session et recharge la sauvegarde si elle existe.
 commun.initialiser()
 
+# Un visiteur qui n'a encore rien fait voit la présentation, et rien
+# d'autre : ni titre de logiciel au-dessus de la promesse, ni panneau de
+# saisie sur le côté. On tranche ici, avant de dessiner le moindre écran.
+from vue_accueil import afficher_accueil, doit_afficher
+accueil = doit_afficher()
+
+
+# ---------------------------------------------------------------------------
+# Présentation — le premier écran d'un visiteur
+# ---------------------------------------------------------------------------
+#
+# Elle se dessine avant tout le reste et s'arrête là. La barre latérale se
+# réduit à l'essentiel : douze champs de saisie devant quelqu'un qui
+# découvre le produit, c'est une porte de sortie. Et aucun titre de
+# logiciel ne vient coiffer la promesse.
+
+if accueil:
+    with st.sidebar:
+        st.title("PrevuFlow")
+        commun.selecteur_langue()
+        st.caption(commun.t("app.signature"))
+        panneau_compte()
+        if st.button(commun.t("abo.onglet"), use_container_width=True,
+                     key="abo_accueil"):
+            st.session_state.page = "abonnement"
+            st.session_state.accueil_vu = True
+            st.rerun()
+        st.divider()
+        st.caption(commun.t("acc.barre_laterale"))
+
+    afficher_accueil()
+    st.stop()
+
 
 # ---------------------------------------------------------------------------
 # Barre laterale
@@ -218,13 +251,6 @@ if (st.session_state.get("page") == "abonnement"
     if st.button(commun.t("app.retour"), key="quitter_abonnement"):
         st.session_state.pop("page", None)
         st.rerun()
-    st.stop()
-
-# Écran d'accueil : un visiteur qui n'a encore rien fait arrive sur ce que
-# fait l'outil, pas sur un formulaire vide. Il s'efface dès qu'on entre.
-from vue_accueil import afficher_accueil, doit_afficher
-if doit_afficher():
-    afficher_accueil()
     st.stop()
 
 from vue_abonnement import bandeau_abonnement

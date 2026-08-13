@@ -77,6 +77,23 @@ else:
                  for b in at.button))
 
 
+print("\n1 bis. L'accueil n'est coiffe ni d'un titre, ni de reglages")
+
+# Deux defauts vus a l'ecran, corriges le 13 aout : le titre du logiciel
+# s'affichait au-dessus de la promesse, et toute la barre de reglages
+# etait deja la. Douze champs de saisie devant quelqu'un qui decouvre le
+# produit, c'est une porte de sortie.
+at = lancer()
+verifier("aucun titre de logiciel au-dessus de la promesse",
+         [t.value for t in at.title] == ["PrevuFlow"])
+verifier("la barre laterale est reduite a l'essentiel",
+         len(at.text_input) + len(at.number_input) + len(at.selectbox) <= 2)
+verifier("aucun depot de fichier avant d'etre entre",
+         len(at.button) <= 3)
+verifier("la barre annonce ce qui viendra",
+         lg.traduire("acc.barre_laterale", "fr") in texte(at))
+
+
 print("\n2. Les prix sont lisibles avant toute inscription")
 
 # C'est le point qui fait rester ou partir : un tarif qu'on ne decouvre
