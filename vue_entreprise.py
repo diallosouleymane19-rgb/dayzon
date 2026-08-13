@@ -252,7 +252,8 @@ def _rapport(ind, syn) -> None:
                 "📊 Excel", key="x_ent",
                 data=exporter_entreprise_excel(
                     ind, syn, st.session_state.get("mouvements"),
-                    devise=st.session_state.devise, titre=titre),
+                    devise=st.session_state.devise, titre=titre, t=commun.t,
+                                      nombre=formater_court),
                 file_name=f"analyse_entreprise_{horodatage}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument."
                      "spreadsheetml.sheet",
@@ -263,7 +264,8 @@ def _rapport(ind, syn) -> None:
                 st.download_button(
                     "📄 PDF", key="p_ent",
                     data=exporter_pdf(syn, devise=st.session_state.devise,
-                                      titre=titre),
+                                      titre=titre, t=commun.t,
+                                      nombre=formater_court),
                     file_name=f"analyse_{horodatage}.pdf",
                     mime="application/pdf", use_container_width=True)
                 st.caption(commun.t("rap.pdf_aide"))
@@ -271,7 +273,8 @@ def _rapport(ind, syn) -> None:
                 st.download_button(
                     "📝 Word", key="w_ent",
                     data=exporter_word(syn, devise=st.session_state.devise,
-                                       titre=titre),
+                                       titre=titre, t=commun.t,
+                                      nombre=formater_court),
                     file_name=f"analyse_{horodatage}.docx",
                     mime="application/vnd.openxmlformats-officedocument."
                          "wordprocessingml.document",

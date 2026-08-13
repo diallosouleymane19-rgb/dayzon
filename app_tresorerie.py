@@ -420,7 +420,8 @@ else:
                             "📊 Excel",
                             data=exporter_excel(syn, st.session_state.mouvements,
                                                 devise=st.session_state.devise,
-                                                titre=nom_rapport),
+                                                titre=nom_rapport, t=commun.t,
+                                              nombre=commun.formater_court),
                             file_name=f"analyse_{horodatage}.xlsx",
                             mime="application/vnd.openxmlformats-officedocument."
                                  "spreadsheetml.sheet",
@@ -430,7 +431,8 @@ else:
                         st.download_button(
                             "📄 PDF",
                             data=exporter_pdf(syn, devise=st.session_state.devise,
-                                              titre=nom_rapport),
+                                              titre=nom_rapport, t=commun.t,
+                                              nombre=commun.formater_court),
                             file_name=f"analyse_{horodatage}.pdf",
                             mime="application/pdf", use_container_width=True)
                         st.caption(commun.t("rap.pdf_aide"))
@@ -438,7 +440,8 @@ else:
                         st.download_button(
                             "📝 Word",
                             data=exporter_word(syn, devise=st.session_state.devise,
-                                               titre=nom_rapport),
+                                               titre=nom_rapport, t=commun.t,
+                                              nombre=commun.formater_court),
                             file_name=f"analyse_{horodatage}.docx",
                             mime="application/vnd.openxmlformats-officedocument."
                                  "wordprocessingml.document",
