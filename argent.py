@@ -21,6 +21,23 @@ from datetime import date, datetime, timezone
 from decimal import Decimal, ROUND_HALF_EVEN
 
 
+def _texte(cle: str, **variables) -> str:
+    """
+    Repli quand l'appelant ne fournit pas sa propre traduction.
+
+    Ce module reste pur : il ne connait ni Streamlit ni la langue de
+    lecture. Ces messages sont des erreurs — rares, mais lues par
+    l'utilisateur au pire moment.
+    """
+    from langues import traduire
+    try:
+        import streamlit as st
+        code = st.session_state.get("langue", "fr")
+    except Exception:
+        code = "fr"
+    return traduire(cle, code, **variables)
+
+
 class ErreurArgent(ValueError):
     """Violation d'une règle monétaire. Le message est destiné à l'utilisateur."""
 
@@ -108,7 +125,7 @@ class Montant:
         if not isinstance(self.valeur, Decimal):
             object.__setattr__(self, "valeur", Decimal(str(self.valeur)))
         if not self.valeur.is_finite():
-            raise ErreurArgent("Un montant doit être un nombre fini.")
+            raise ErreurArgent(_texte("arg.montant_fini"))
 
     # ---- Construction --------------------------------------------------
 
@@ -231,12 +248,11 @@ class Taux:
         if not isinstance(self.valeur, Decimal):
             object.__setattr__(self, "valeur", Decimal(str(self.valeur)))
         if self.base == self.contre:
-            raise ErreurArgent("Un taux relie deux devises différentes.")
+            raise ErreurArgent(_texte("arg.taux_deux_devises"))
         if self.valeur <= 0 or not self.valeur.is_finite():
             raise ErreurArgent("Un taux de change est strictement positif.")
         if not self.source:
-            raise ErreurArgent(
-                "Un taux sans source ne peut pas être justifié à un banquier.")
+            raise ErreurArgent(_texte("arg.taux_sans_source"))
 
     @property
     def inverse(self) -> "Taux":

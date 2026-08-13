@@ -25,6 +25,23 @@ import pandas as pd
 from moteur_tresorerie import Operation, Recurrence
 
 
+def _texte(cle: str, **variables) -> str:
+    """
+    Repli quand l'appelant ne fournit pas sa propre traduction.
+
+    Ce module reste pur : il ne connait ni Streamlit ni la langue de
+    lecture. Ces messages sont des erreurs — rares, mais lues par
+    l'utilisateur au pire moment.
+    """
+    from langues import traduire
+    try:
+        import streamlit as st
+        code = st.session_state.get("langue", "fr")
+    except Exception:
+        code = "fr"
+    return traduire(cle, code, **variables)
+
+
 # ---------------------------------------------------------------------------
 # Reconnaissance des colonnes
 # ---------------------------------------------------------------------------
@@ -171,8 +188,7 @@ def lire_fichier(chemin_ou_flux, nom: str = "") -> pd.DataFrame:
                     return df
             except Exception:
                 continue
-    raise ValueError("Format de fichier non reconnu. "
-                     "Formats acceptés : CSV, XLSX, XLS.")
+    raise ValueError(_texte("imp.format_inconnu"))
 
 
 # ---------------------------------------------------------------------------
@@ -372,9 +388,7 @@ def lire_pdf(chemin_ou_flux) -> pd.DataFrame:
     try:
         import pdfplumber
     except ImportError:
-        raise ValueError(
-            "La lecture des PDF nécessite pdfplumber. "
-            "Installez-le avec : pip install pdfplumber")
+        raise ValueError(_texte("imp.pdfplumber"))
 
     lignes_utiles: list[list[dict]] = []
     tout_le_texte: list[str] = []
@@ -393,10 +407,7 @@ def lire_pdf(chemin_ou_flux) -> pd.DataFrame:
                     _recoller_milliers(sorted(mots_ligne, key=lambda w: w["x0"])))
 
     if not lignes_utiles:
-        raise ValueError(
-            "Ce PDF ne contient aucun texte : c'est probablement un document "
-            "scanné. Exportez plutôt votre relevé au format CSV ou Excel "
-            "depuis votre banque.")
+        raise ValueError(_texte("imp.pdf_scanne"))
 
     annees = [int(a) for a in re.findall(r"\b(20\d{2})\b", " ".join(tout_le_texte))]
     annee_defaut = max(set(annees), key=annees.count) if annees else date.today().year
@@ -485,9 +496,7 @@ def lire_pdf(chemin_ou_flux) -> pd.DataFrame:
         })
 
     if not operations:
-        raise ValueError(
-            "Aucune opération exploitable dans ce PDF. "
-            "Exportez votre relevé en CSV ou Excel depuis votre banque.")
+        raise ValueError(_texte("imp.pdf_vide"))
 
     return pd.DataFrame(operations)
 
@@ -504,9 +513,9 @@ def extraire_mouvements(df: pd.DataFrame, colonnes: Colonnes | None = None) -> l
     """Transforme un tableau brut en liste de mouvements exploitables."""
     c = colonnes or detecter_colonnes(df)
     if not c.exploitable:
-        raise ValueError(
-            "Impossible d'identifier les colonnes. "
-            f"Colonnes trouvées : {', '.join(map(str, df.columns))}")
+        raise ValueError(_texte(
+            "imp.colonnes_inconnues",
+            colonnes=", ".join(map(str, df.columns))))
 
     dates = pd.to_datetime(df[c.date], errors="coerce", dayfirst=True)
 

@@ -27,6 +27,23 @@ from argent import (Conversion, ErreurArgent, Montant, TableTaux, Taux,
                     nom_devise, symbole, valider_devise)
 
 
+def _texte(cle: str, **variables) -> str:
+    """
+    Repli quand l'appelant ne fournit pas sa propre traduction.
+
+    Ce module reste pur : il ne connait ni Streamlit ni la langue de
+    lecture. Ces messages sont des erreurs — rares, mais lues par
+    l'utilisateur au pire moment.
+    """
+    from langues import traduire
+    try:
+        import streamlit as st
+        code = st.session_state.get("langue", "fr")
+    except Exception:
+        code = "fr"
+    return traduire(cle, code, **variables)
+
+
 class ErreurCompte(ValueError):
     """Le message est destiné à l'utilisateur."""
 
@@ -141,13 +158,12 @@ class Portefeuille:
 
     def ajouter(self, compte: Compte) -> Compte:
         if any(c.identifiant == compte.identifiant for c in self._comptes):
-            raise ErreurCompte("Ce compte figure déjà dans la liste.")
+            raise ErreurCompte(_texte("cpt.compte_deja_liste"))
         doublon = any(_sans_accent(c.nom) == _sans_accent(compte.nom)
                       and c.devise == compte.devise for c in self._comptes)
         if doublon:
-            raise ErreurCompte(
-                f"Un compte « {compte.nom} » en {compte.devise} existe déjà. "
-                f"Choisissez un autre nom pour les distinguer.")
+            raise ErreurCompte(_texte("cpt.compte_existe",
+                                      nom=compte.nom, devise=compte.devise))
         self._comptes.append(compte)
         return compte
 

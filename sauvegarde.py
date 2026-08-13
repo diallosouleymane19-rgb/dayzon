@@ -30,10 +30,27 @@ from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
 
+
+def _texte(cle: str, **variables) -> str:
+    """
+    Repli quand l'appelant ne fournit pas sa propre traduction.
+
+    Ce module reste pur : il ne connait ni Streamlit ni la langue de
+    lecture. Ces messages sont des erreurs — rares, mais lues par
+    l'utilisateur au pire moment.
+    """
+    from langues import traduire
+    try:
+        import streamlit as st
+        code = st.session_state.get("langue", "fr")
+    except Exception:
+        code = "fr"
+    return traduire(cle, code, **variables)
+
 VERSION_FORMAT = 1
 NOM_FICHIER = "prevuflow_donnees.json"
 
-# L'application s'est appelée PrevuFlow jusqu'au 12 août 2026. Les sauvegardes
+# L'application s'est appelée Dayzon jusqu'au 12 août 2026. Les sauvegardes
 # de cette époque doivent rester lisibles : quelqu'un qui met à jour ne doit
 # pas retrouver un écran vide et croire ses données perdues.
 ANCIEN_NOM_FICHIER = "dayzon_donnees.json"
@@ -143,7 +160,7 @@ def chemin_par_defaut() -> Path:
 
 
 def ancien_chemin() -> Path:
-    """Là où PrevuFlow écrivait, avant le changement de nom."""
+    """Là où Dayzon écrivait, avant le changement de nom."""
     return _base_systeme() / ANCIEN_DOSSIER / ANCIEN_NOM_FICHIER
 
 
@@ -252,10 +269,7 @@ def enregistrer(donnees: Donnees, chemin: Path | str | None = None) -> Path:
     # Garde-fou : sans chemin explicite, on n'écrit jamais hors du poste
     # de l'utilisateur. Un serveur partagé mélangerait les visiteurs.
     if chemin is None and not mode_local():
-        raise ErreurSauvegarde(
-            "L'enregistrement automatique est désactivé en ligne : le serveur "
-            "est partagé entre tous les visiteurs. Utilisez « Télécharger mes "
-            "données » pour conserver votre travail.")
+        raise ErreurSauvegarde(_texte("sauv.pas_en_ligne"))
 
     chemin = Path(chemin or chemin_par_defaut())
     donnees.enregistre_le = datetime.now()
@@ -430,7 +444,7 @@ def exporter_vers(source: Path | str | None, destination: Path | str) -> Path:
     source = Path(source or chemin_a_lire())
     destination = Path(destination)
     if not source.exists():
-        raise ErreurSauvegarde("Aucune sauvegarde à exporter.")
+        raise ErreurSauvegarde(_texte("sauv.rien_a_exporter"))
     destination.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(source, destination)
     return destination

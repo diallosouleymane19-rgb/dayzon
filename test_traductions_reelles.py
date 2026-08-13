@@ -431,6 +431,64 @@ for m in en_dur[:5]:
     print(f"          · {m[:70]}")
 
 
+print("\n5 bis. Les erreurs des modules purs suivent la langue")
+
+# Ces messages n'apparaissent qu'au pire moment — un fichier illisible, un
+# taux manquant, un doublon. Ils sont restes francais jusqu'au 13 aout 2026,
+# alors meme que tout le reste de l'ecran etait traduit.
+import io as _io                                                # noqa: E402
+
+import argent as _argent                                        # noqa: E402
+import comptes as _comptes                                      # noqa: E402
+import import_intelligent as _imp                               # noqa: E402
+import sauvegarde as _sauv                                      # noqa: E402
+
+
+def _message(action) -> str:
+    try:
+        action()
+    except Exception as erreur:
+        return str(erreur)
+    return ""
+
+
+for code, extrait in (("fr", "reconnu"), ("en", "recognised"),
+                      ("es", "reconocido"), ("zh", "无法识别")):
+    st.session_state["langue"] = code
+    texte = _message(lambda: _imp.analyser(_io.BytesIO(b"x"), "releve.txt"))
+    verifier(f"{code} : format de fichier refuse dans la langue "
+             f"({texte[:30]})", extrait in texte)
+
+for code, extrait in (("fr", "fini"), ("en", "finite"),
+                      ("es", "finito"), ("zh", "有限")):
+    st.session_state["langue"] = code
+    texte = _message(lambda: _argent.Montant(Decimal("nan"), "EUR"))
+    verifier(f"{code} : montant invalide dans la langue ({texte[:30]})",
+             extrait in texte)
+
+for code, extrait in (("fr", "existe"), ("en", "already exists"),
+                      ("es", "Ya existe"), ("zh", "已存在")):
+    st.session_state["langue"] = code
+
+    def _doublon():
+        p = _comptes.Portefeuille(devise_reference="EUR")
+        p.ajouter(_comptes.Compte("A", "EUR", Decimal("1")))
+        p.ajouter(_comptes.Compte("A", "EUR", Decimal("2")))
+
+    texte = _message(_doublon)
+    verifier(f"{code} : compte en double dans la langue ({texte[:30]})",
+             extrait in texte)
+
+for code, extrait in (("fr", "désactivé"), ("en", "off online"),
+                      ("es", "desactivado"), ("zh", "已关闭")):
+    st.session_state["langue"] = code
+    texte = _message(lambda: _sauv.enregistrer(_sauv.Donnees()))
+    verifier(f"{code} : refus d'ecrire en ligne dans la langue "
+             f"({texte[:30]})", extrait in texte)
+
+st.session_state["langue"] = "fr"
+
+
 print("\n6. Les montants suivent la langue, pas le code")
 
 # Le yen n'a pas de centimes, quelle que soit la langue de lecture.
