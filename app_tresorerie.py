@@ -34,6 +34,10 @@ pwa.activer()
 import theme
 theme.appliquer()
 
+# La marque, au-dessus de la barre latérale. Le fichier avec le nom quand
+# le panneau est ouvert, le seul symbole quand il est replié.
+st.logo("static/logo-nom.png", icon_image="static/logo.png", size="large")
+
 # Prépare la session et recharge la sauvegarde si elle existe.
 commun.initialiser()
 
@@ -55,7 +59,6 @@ accueil = doit_afficher()
 
 if accueil:
     with st.sidebar:
-        st.title("PrevuFlow")
         commun.selecteur_langue()
         st.caption(commun.t("app.signature"))
         panneau_compte()
@@ -76,7 +79,6 @@ if accueil:
 # ---------------------------------------------------------------------------
 
 with st.sidebar:
-    st.title("PrevuFlow")
     commun.selecteur_langue()
     st.caption(commun.t("app.signature"))
 

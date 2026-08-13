@@ -84,8 +84,10 @@ print("\n1 bis. L'accueil n'est coiffe ni d'un titre, ni de reglages")
 # etait deja la. Douze champs de saisie devant quelqu'un qui decouvre le
 # produit, c'est une porte de sortie.
 at = lancer()
-verifier("aucun titre de logiciel au-dessus de la promesse",
-         [t.value for t in at.title] == ["PrevuFlow"])
+# Plus aucun titre : le nom textuel de la barre laterale a laisse place au
+# logo, et le titre de l'application ne coiffe plus la promesse.
+verifier("aucun titre ne coiffe la promesse",
+         [t.value for t in at.title] == [])
 verifier("la barre laterale est reduite a l'essentiel",
          len(at.text_input) + len(at.number_input) + len(at.selectbox) <= 2)
 verifier("aucun depot de fichier avant d'etre entre",
@@ -197,6 +199,30 @@ else:
     # le retirer ferait passer un brouillon pour un texte valide.
     verifier("l'avertissement de relecture est visible",
              "faire relire" in contenu)
+
+print("\n7. La marque est visible a l'ecran")
+
+# Le logo ne servait qu'a l'onglet du navigateur et au manifeste : il
+# n'apparaissait nulle part dans l'application.
+
+for fichier in ("static/logo.png", "static/logo-nom.png",
+                "static/favicon.png", "static/icon-512.png",
+                "marque/logo.svg"):
+    verifier(f"{fichier} existe", Path(fichier).exists())
+
+# Les icones ne doivent plus etre celles de Dayzon : on verifie la teinte
+# dominante, le marine du fond.
+from PIL import Image                                           # noqa: E402
+
+for fichier in ("static/favicon.png", "static/icon-512.png",
+                "static/logo.png"):
+    image = Image.open(fichier).convert("RGB")
+    couleurs = sorted(image.getcolors(image.width * image.height) or [],
+                      reverse=True)
+    dominante = couleurs[0][1] if couleurs else (0, 0, 0)
+    proche = all(abs(a - b) < 12
+                 for a, b in zip(dominante, (18, 62, 83)))
+    verifier(f"{fichier} porte le marine de la marque {dominante}", proche)
 
 print("\n" + "=" * 62)
 print("Toutes les verifications sont passees."

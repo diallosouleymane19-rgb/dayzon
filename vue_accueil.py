@@ -71,6 +71,11 @@ def _formule(colonne, offre, periode, en_avant: bool = False) -> None:
 def afficher_accueil() -> None:
     from abonnement import OFFRES_VENDUES, Periode
 
+    # Le symbole avant la phrase : sur une page de vente, la marque se
+    # regarde avant de se lire.
+    marque, _ = st.columns([1, 7])
+    marque.image("static/logo.png", width=84)
+
     theme.hero(commun.t("acc.marque"), commun.t("acc.promesse"),
                commun.t("acc.sous_promesse"))
 
