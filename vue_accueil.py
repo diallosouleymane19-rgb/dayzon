@@ -71,12 +71,10 @@ def _formule(colonne, offre, periode, en_avant: bool = False) -> None:
 def afficher_accueil() -> None:
     from abonnement import OFFRES_VENDUES, Periode
 
-    # Le symbole avant la phrase : sur une page de vente, la marque se
-    # regarde avant de se lire.
-    marque, _ = st.columns([1, 7])
-    marque.image("static/logo.png", width=84)
-
-    theme.hero(commun.t("acc.marque"), commun.t("acc.promesse"),
+    # Le logo est deja en haut de la barre laterale : le remettre ici, plus
+    # le nom dans le bandeau, ferait trois fois la marque sur le meme ecran.
+    # L'etiquette du bandeau sert donc a situer le produit, pas a le nommer.
+    theme.hero(commun.t("acc.categorie"), commun.t("acc.promesse"),
                commun.t("acc.sous_promesse"))
 
     # --- Ce qui nous distingue -------------------------------------------
