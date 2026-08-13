@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="PrevuFlow">
+  <title>PrevuFlow — version monochrome</title>
+  <desc>La meme courbe en un seul ton, pour une gravure, un tampon ou une impression en noir.</desc>
+  <rect width="512" height="512" rx="112" fill="#123e53"/>
+  <path d="M 96 190 C 142 190 158 326 248 326 C 344 326 376 182 416 138"
+        fill="none" stroke="#ffffff" stroke-width="34"
+        stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="248" cy="326" r="38" fill="#ffffff"/>
+  <circle cx="248" cy="326" r="17" fill="#123e53"/>
+</svg>

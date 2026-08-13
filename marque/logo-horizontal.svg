@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 240" width="900" height="240" role="img" aria-label="PrevuFlow">
+  <title>PrevuFlow</title>
+  <desc>Le symbole a gauche, le nom a droite : Prevu en marine, Flow en vert.</desc>
+  <rect x="20" y="20" width="200" height="200" rx="44" fill="#123e53"/>
+  <path d="M 37 94 C 55 94 61 147 96 147 C 134 147 146 91 162 74"
+        fill="none" stroke="#ffffff" stroke-width="13"
+        stroke-linecap="round" stroke-linejoin="round"
+        transform="translate(20, 20)"/>
+  <circle cx="116" cy="167" r="15" fill="#df8d20"/>
+  <text x="264" y="148" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif"
+        font-size="96" font-weight="600" letter-spacing="-2">
+    <tspan fill="#123e53">Prevu</tspan><tspan fill="#1F7244">Flow</tspan>
+  </text>
+</svg>
