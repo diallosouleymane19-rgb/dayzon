@@ -1,6 +1,6 @@
 """
 COMPTE UTILISATEUR — inscription, connexion, données en base
-Dayzon — SMD Global Consulting LLC
+PrevuFlow — SMD Global Consulting LLC
 
 Corrige la limite majeure de l'application en ligne : sans compte, chaque
 visiteur repartait de zéro et devait redéposer son fichier à chaque visite.
@@ -9,7 +9,7 @@ Ce que ce module fait, et ce qu'il ne fait pas
 ----------------------------------------------
 Il ne vérifie aucun mot de passe et n'en stocke aucun. Tout passe par
 Supabase, qui gère le chiffrement, la confirmation d'adresse et la
-réinitialisation. Dayzon ne voit jamais qu'un jeton de session.
+réinitialisation. PrevuFlow ne voit jamais qu'un jeton de session.
 
 L'isolation entre utilisateurs n'est pas assurée ici. Elle est appliquée
 par PostgreSQL lui-même, via des politiques de sécurité au niveau des

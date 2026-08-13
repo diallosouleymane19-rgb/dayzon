@@ -1,6 +1,6 @@
 {
-  "name": "Dayzon — Gestion financière",
-  "short_name": "Dayzon",
+  "name": "PrevuFlow — Gestion financière",
+  "short_name": "PrevuFlow",
   "description": "Votre solde, n'importe quel jour à venir. Placez vos revenus, factures et dépenses aux dates où ils tombent.",
   "start_url": "/",
   "scope": "/",

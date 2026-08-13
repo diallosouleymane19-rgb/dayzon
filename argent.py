@@ -1,6 +1,6 @@
 """
 ARGENT — montants, devises et taux de change
-Dayzon — SMD Global Consulting LLC
+PrevuFlow — SMD Global Consulting LLC
 
 Corrige trois défauts identifiés par l'audit d'architecture :
 

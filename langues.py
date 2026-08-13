@@ -1,6 +1,6 @@
 """
 LANGUES — français, anglais, espagnol, chinois
-Dayzon — SMD Global Consulting LLC
+PrevuFlow — SMD Global Consulting LLC
 
 Une application vendue à l'international ne peut pas être une application
 française traduite après coup. Ce module pose la règle inverse : les données

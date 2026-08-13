@@ -1,6 +1,6 @@
 """
 ANALYSE FINANCIERE EN LANGAGE CLAIR
-Dayzon — SMD Global Consulting LLC
+PrevuFlow — SMD Global Consulting LLC
 
 Transforme une liste d'operations brutes en informations qu'un dirigeant
 comprend sans formation comptable.

@@ -1,6 +1,6 @@
 """
 ABONNEMENTS
-Dayzon — SMD Global Consulting LLC
+PrevuFlow — SMD Global Consulting LLC
 
 Trois responsabilités, et rien d'autre :
   1. dire ce que chaque plan débloque ;
@@ -78,7 +78,7 @@ class Offre:
     retourne contre celui qui la vend : l'acheteur hésite, puis renonce.
 
     Les textes ne sont pas écrits ici mais désignés par une clé : `cle_nom`,
-    `cle_resume`, `cles_arguments`. Dayzon se vend dans quatre langues ; une
+    `cle_resume`, `cles_arguments`. PrevuFlow se vend dans quatre langues ; une
     grille tarifaire rédigée en français dans le code serait restée française
     partout. La traduction se fait à l'affichage, par la vue.
     """
@@ -350,7 +350,7 @@ def charger_configuration(secrets: dict | None = None) -> ConfigStripe:
             source = {}
 
     if not source:
-        source = {c: os.environ.get(f"DAYZON_{c.upper()}", "")
+        source = {c: os.environ.get(f"PREVUFLOW_{c.upper()}", "")
                   for c in ("cle_secrete", "url_retour",
                             "prix_particulier_mensuel", "prix_particulier_annuel",
                             "prix_entreprise_mensuel", "prix_entreprise_annuel")}
@@ -386,7 +386,7 @@ def ouvrir_paiement(plan: Plan, periode: Periode, config: ConfigStripe,
     Crée une session de paiement Stripe et renvoie l'adresse où envoyer
     l'utilisateur.
 
-    Aucune donnée de carte ne transite par Dayzon : la saisie a lieu sur les
+    Aucune donnée de carte ne transite par PrevuFlow : la saisie a lieu sur les
     pages de Stripe. C'est ce qui nous dispense des obligations PCI-DSS.
     """
     t = t or _sans_traduction
@@ -415,7 +415,7 @@ def ouvrir_paiement(plan: Plan, periode: Periode, config: ConfigStripe,
         "allow_promotion_codes": True,
         "client_reference_id": identifiant_client or None,
         "metadata": {"plan": plan.value, "periode": periode.value,
-                     "produit": "dayzon"},
+                     "produit": "prevuflow"},
     }
     if identifiant_client:
         parametres["customer"] = identifiant_client

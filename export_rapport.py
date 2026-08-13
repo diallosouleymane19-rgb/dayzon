@@ -1,6 +1,6 @@
 """
 EXPORT DU RAPPORT FINANCIER
-Dayzon — SMD Global Consulting LLC
+PrevuFlow — SMD Global Consulting LLC
 
 Produit un rapport telechargeable en Excel ou en PDF a partir de l'analyse.
 
@@ -461,7 +461,7 @@ def exporter_word(synthese, devise: str = "EUR",
     # --- Pied ---
     doc.add_paragraph()
     p = doc.add_paragraph()
-    rr = p.add_run("Rapport généré par le Dayzon. Les montants sont "
+    rr = p.add_run("Rapport généré par le PrevuFlow. Les montants sont "
                    "issus des mouvements importés et doivent être validés.")
     rr.font.size = Pt(8); rr.font.italic = True
     rr.font.color.rgb = _rgb("808080")

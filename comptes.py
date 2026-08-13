@@ -1,6 +1,6 @@
 """
 COMPTES — plusieurs comptes, plusieurs devises
-Dayzon — SMD Global Consulting LLC
+PrevuFlow — SMD Global Consulting LLC
 
 Corrige un défaut de conception : l'application ne connaissait qu'un solde
 de départ unique. Un entrepreneur qui travaille entre la France, la Chine et

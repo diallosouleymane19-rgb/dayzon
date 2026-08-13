@@ -1,6 +1,6 @@
 """
 ÉCRAN D'ABONNEMENT — les formules, le choix, le paiement
-Dayzon — SMD Global Consulting LLC
+PrevuFlow — SMD Global Consulting LLC
 
 Trois partis pris, parce qu'une page de tarifs se juge en dix secondes :
 
@@ -10,7 +10,7 @@ Trois partis pris, parce qu'une page de tarifs se juge en dix secondes :
   · aucun bouton qui promet ce qu'il ne peut pas tenir : si le paiement
     n'est pas configuré, on le dit et on n'affiche pas de bouton mort.
 
-Le règlement lui-même a lieu sur les pages de Stripe. Dayzon ne voit jamais
+Le règlement lui-même a lieu sur les pages de Stripe. PrevuFlow ne voit jamais
 un numéro de carte, ce qui la dispense des obligations PCI-DSS.
 """
 

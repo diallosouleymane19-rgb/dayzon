@@ -1,6 +1,6 @@
 """
 LE CALENDRIER DE TRESORERIE — affichage partage
-Dayzon — SMD Global Consulting LLC
+PrevuFlow — SMD Global Consulting LLC
 
 Le meme calendrier sert au particulier et a l'entreprise. Seul le vocabulaire
 des libelles change ; la mecanique du solde jour par jour est identique.

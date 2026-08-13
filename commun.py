@@ -1,6 +1,6 @@
 """
 ELEMENTS PARTAGES ENTRE LES DEUX PROFILS
-Dayzon — SMD Global Consulting LLC
+PrevuFlow — SMD Global Consulting LLC
 
 Devises, formatage, portefeuille et projection : un seul endroit, une seule
 vérité. Ce module fait le lien entre le noyau pur (`argent`, `comptes`,

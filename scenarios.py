@@ -1,6 +1,6 @@
 """
 SCÉNARIOS — « et si ? »
-Dayzon — SMD Global Consulting LLC
+PrevuFlow — SMD Global Consulting LLC
 
 Un scénario prend vos opérations, applique une hypothèse, et reprojette.
 Le moteur de trésorerie ne change pas : on ne modifie que ce qu'on lui donne.

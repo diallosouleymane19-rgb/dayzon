@@ -19,7 +19,7 @@ from sauvegarde import (Donnees, ErreurSauvegarde, VERSION_FORMAT, charger,
                         exporter_vers, informations, supprimer)
 
 ok, ko = 0, []
-BAC = Path(tempfile.mkdtemp(prefix="dayzon_test_"))
+BAC = Path(tempfile.mkdtemp(prefix="prevuflow_test_"))
 
 
 def verifier(nom, obtenu, attendu):
@@ -267,11 +267,40 @@ print("\n10. Emplacement par defaut")
 # ---------------------------------------------------------------------------
 
 dossier = dossier_par_defaut()
-verifier("le dossier porte le nom de l'application", dossier.name, "Dayzon")
+verifier("le dossier porte le nom de l'application", dossier.name, "PrevuFlow")
 verifier("le chemin par defaut est dans ce dossier",
          chemin_par_defaut().parent, dossier)
 verifier("le fichier est nomme lisiblement",
-         chemin_par_defaut().name, "dayzon_donnees.json")
+         chemin_par_defaut().name, "prevuflow_donnees.json")
+
+# --- Reprise des sauvegardes de l'epoque Dayzon --------------------------
+# L'application a change de nom le 12 aout 2026. Quelqu'un qui met a jour
+# ne doit pas retrouver un ecran vide et croire ses donnees perdues.
+import sauvegarde as _sv                                       # noqa: E402
+
+_ancien_base = _sv._base_systeme
+_faux_base = Path(tempfile.mkdtemp()) / "base"
+_sv._base_systeme = lambda: _faux_base
+
+try:
+    (_faux_base / _sv.ANCIEN_DOSSIER).mkdir(parents=True, exist_ok=True)
+    _ancien = _faux_base / _sv.ANCIEN_DOSSIER / _sv.ANCIEN_NOM_FICHIER
+    _sv.enregistrer(Donnees(profil="Entreprise", devise_reference="USD"),
+                    _ancien)
+
+    verifier("sans nouveau fichier, on relit celui de Dayzon",
+             _sv.chemin_a_lire(), _ancien)
+    _relu = _sv.charger(_sv.chemin_a_lire())
+    verifier("les donnees de l'ancien fichier sont intactes",
+             (_relu.profil, _relu.devise_reference), ("Entreprise", "USD"))
+
+    # Des que le nouveau fichier existe, c'est lui qui fait foi.
+    _sv.enregistrer(Donnees(profil="Particulier"), _sv.chemin_par_defaut())
+    verifier("le nouveau fichier prend la main",
+             _sv.chemin_a_lire(), _sv.chemin_par_defaut())
+    verifier("l'ancien fichier n'est pas efface", _ancien.exists(), True)
+finally:
+    _sv._base_systeme = _ancien_base
 # On n'ecrit jamais a cote du programme : ce dossier est souvent en lecture seule.
 verifier("l'ecriture n'est pas dans le dossier du code",
          Path(__file__).parent.resolve() in dossier.resolve().parents

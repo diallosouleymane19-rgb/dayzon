@@ -1,6 +1,6 @@
 """
 SAUVEGARDE — les données survivent à la fermeture
-Dayzon — SMD Global Consulting LLC
+PrevuFlow — SMD Global Consulting LLC
 
 Corrige le défaut le plus pénalisant à l'usage : tout disparaissait à la
 fermeture de l'application. Personne ne réimporte son relevé à chaque visite.
@@ -31,7 +31,13 @@ from decimal import Decimal
 from pathlib import Path
 
 VERSION_FORMAT = 1
-NOM_FICHIER = "dayzon_donnees.json"
+NOM_FICHIER = "prevuflow_donnees.json"
+
+# L'application s'est appelée PrevuFlow jusqu'au 12 août 2026. Les sauvegardes
+# de cette époque doivent rester lisibles : quelqu'un qui met à jour ne doit
+# pas retrouver un écran vide et croire ses données perdues.
+ANCIEN_NOM_FICHIER = "dayzon_donnees.json"
+ANCIEN_DOSSIER = "Dayzon"
 
 
 # ---------------------------------------------------------------------------
@@ -70,6 +76,10 @@ def mode_local() -> bool:
         bool(os.environ.get("CODESPACES")),
         bool(os.environ.get("GITPOD_WORKSPACE_ID")),
         # Une variable explicite permet de forcer le mode hébergé.
+        os.environ.get("PREVUFLOW_HEBERGE", "").lower() in ("1", "true", "oui"),
+        # Ancien nom, conservé : un script ou un service qui le pose encore
+        # doit continuer de fonctionner. Se tromper ici exposerait des
+        # relevés bancaires.
         os.environ.get("DAYZON_HEBERGE", "").lower() in ("1", "true", "oui"),
     )
     if any(indices_heberges):
@@ -115,17 +125,42 @@ def dossier_par_defaut() -> Path:
     dossier est en lecture seule, et les données seraient perdues à la
     moindre mise à jour.
     """
+    return _base_systeme() / "PrevuFlow"
+
+
+def _base_systeme() -> Path:
     if os.name == "nt":
         base = os.environ.get("APPDATA") or Path.home() / "AppData" / "Roaming"
     elif os.uname().sysname == "Darwin":
         base = Path.home() / "Library" / "Application Support"
     else:
         base = os.environ.get("XDG_DATA_HOME") or Path.home() / ".local" / "share"
-    return Path(base) / "Dayzon"
+    return Path(base)
 
 
 def chemin_par_defaut() -> Path:
     return dossier_par_defaut() / NOM_FICHIER
+
+
+def ancien_chemin() -> Path:
+    """Là où PrevuFlow écrivait, avant le changement de nom."""
+    return _base_systeme() / ANCIEN_DOSSIER / ANCIEN_NOM_FICHIER
+
+
+def chemin_a_lire() -> Path:
+    """
+    Le fichier à ouvrir au démarrage.
+
+    Le nouveau s'il existe, l'ancien sinon. On ne déplace rien et on
+    n'efface rien : le premier enregistrement écrira au nouvel emplacement,
+    et l'ancien fichier restera comme filet le temps que l'utilisateur
+    reprenne confiance.
+    """
+    nouveau = chemin_par_defaut()
+    if nouveau.exists():
+        return nouveau
+    ancien = ancien_chemin()
+    return ancien if ancien.exists() else nouveau
 
 
 # ---------------------------------------------------------------------------
@@ -227,7 +262,7 @@ def enregistrer(donnees: Donnees, chemin: Path | str | None = None) -> Path:
 
     contenu = {
         "version_format": VERSION_FORMAT,
-        "application": "Dayzon",
+        "application": "PrevuFlow",
         "enregistre_le": donnees.enregistre_le.isoformat(),
         "profil": donnees.profil,
         "devise_reference": donnees.devise_reference,
@@ -278,7 +313,7 @@ def charger(chemin: Path | str | None = None) -> Donnees | None:
     if chemin is None and not mode_local():
         return None
 
-    chemin = Path(chemin or chemin_par_defaut())
+    chemin = Path(chemin or chemin_a_lire())
     if not chemin.exists():
         return None
 
@@ -300,7 +335,7 @@ def charger(chemin: Path | str | None = None) -> Donnees | None:
     version = brut.get("version_format", 0)
     if version > VERSION_FORMAT:
         raise ErreurSauvegarde(
-            f"Ce fichier a été créé par une version plus récente de Dayzon "
+            f"Ce fichier a été créé par une version plus récente de PrevuFlow "
             f"(format {version}, cette version lit jusqu'au format "
             f"{VERSION_FORMAT}). Mettez l'application à jour pour l'ouvrir.")
 
@@ -358,7 +393,7 @@ def _mettre_de_cote(chemin: Path) -> Path:
 
 def supprimer(chemin: Path | str | None = None) -> bool:
     """Efface la sauvegarde. Action irréversible : à confirmer côté interface."""
-    chemin = Path(chemin or chemin_par_defaut())
+    chemin = Path(chemin or chemin_a_lire())
     if not chemin.exists():
         return False
     try:
@@ -375,7 +410,7 @@ def informations(chemin: Path | str | None = None) -> dict | None:
     if chemin is None and not mode_local():
         return None
 
-    chemin = Path(chemin or chemin_par_defaut())
+    chemin = Path(chemin or chemin_a_lire())
     if not chemin.exists():
         return None
     stat = chemin.stat()
@@ -392,7 +427,7 @@ def exporter_vers(source: Path | str | None, destination: Path | str) -> Path:
 
     L'utilisateur doit pouvoir emporter ses données sans dépendre de nous.
     """
-    source = Path(source or chemin_par_defaut())
+    source = Path(source or chemin_a_lire())
     destination = Path(destination)
     if not source.exists():
         raise ErreurSauvegarde("Aucune sauvegarde à exporter.")
@@ -416,7 +451,7 @@ def vers_octets(donnees: Donnees) -> bytes:
     donnees.enregistre_le = datetime.now()
     contenu = {
         "version_format": VERSION_FORMAT,
-        "application": "Dayzon",
+        "application": "PrevuFlow",
         "enregistre_le": donnees.enregistre_le.isoformat(),
         "profil": donnees.profil,
         "devise_reference": donnees.devise_reference,
@@ -444,13 +479,13 @@ def depuis_octets(donnees_brutes: bytes) -> Donnees:
         texte = donnees_brutes.decode("utf-8")
     except UnicodeDecodeError:
         raise ErreurSauvegarde(
-            "Ce fichier n'est pas un fichier Dayzon : son encodage est illisible.")
+            "Ce fichier n'est pas un fichier PrevuFlow : son encodage est illisible.")
 
     try:
         brut = json.loads(texte, object_hook=_decoder)
     except json.JSONDecodeError as err:
         raise ErreurSauvegarde(
-            f"Ce fichier n'est pas un fichier Dayzon valide (ligne {err.lineno}).")
+            f"Ce fichier n'est pas un fichier PrevuFlow valide (ligne {err.lineno}).")
 
     if not isinstance(brut, dict):
         raise ErreurSauvegarde("Ce fichier n'a pas le format attendu.")
@@ -458,7 +493,7 @@ def depuis_octets(donnees_brutes: bytes) -> Donnees:
     version = brut.get("version_format", 0)
     if version > VERSION_FORMAT:
         raise ErreurSauvegarde(
-            f"Ce fichier a été créé par une version plus récente de Dayzon "
+            f"Ce fichier a été créé par une version plus récente de PrevuFlow "
             f"(format {version}). Mettez l'application à jour pour l'ouvrir.")
 
     brut = _migrer(brut, version)
@@ -483,4 +518,4 @@ def depuis_octets(donnees_brutes: bytes) -> Donnees:
 
 def nom_fichier_export() -> str:
     """Nom daté, pour que l'utilisateur retrouve ses sauvegardes successives."""
-    return f"dayzon_{datetime.now().strftime('%Y%m%d_%H%M')}.json"
+    return f"prevuflow_{datetime.now().strftime('%Y%m%d_%H%M')}.json"

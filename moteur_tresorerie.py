@@ -1,6 +1,6 @@
 """
 MOTEUR DE TRESORERIE PREVISIONNELLE
-SMD Global Consulting LLC — Dayzon
+SMD Global Consulting LLC — PrevuFlow
 
 Calcule le solde projete jour par jour a partir d'operations datees.
 Independant de tout referentiel comptable national : fonctionne pour un

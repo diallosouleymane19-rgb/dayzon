@@ -191,7 +191,7 @@ c = charger_configuration({
     "prix_particulier_annuel": "price_pa",
     "prix_entreprise_mensuel": "price_em",
     "prix_entreprise_annuel": "price_ea",
-    "url_retour": "https://dayzon.app",
+    "url_retour": "https://prevuflow.app",
 })
 verifier("configuration lue", c.configure, True)
 verifier("4 tarifs enregistrés", len(c.prix), 4)
@@ -199,7 +199,7 @@ verifier("tarif Particulier mensuel",
          c.identifiant_prix(Plan.PARTICULIER, Periode.MENSUELLE), "price_pm")
 verifier("tarif Entreprise annuel",
          c.identifiant_prix(Plan.ENTREPRISE, Periode.ANNUELLE), "price_ea")
-verifier("url de retour", c.url_retour, "https://dayzon.app")
+verifier("url de retour", c.url_retour, "https://prevuflow.app")
 
 # Une configuration partielle ne doit pas faire croire que tout est pret.
 partielle = charger_configuration({"cle_secrete": "sk_test_abc"})

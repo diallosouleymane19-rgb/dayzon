@@ -32,11 +32,11 @@ def verifier(nom, obtenu, attendu):
 class Heberge:
     """Simule un serveur partage en posant la variable d'environnement."""
     def __enter__(self):
-        os.environ["DAYZON_HEBERGE"] = "1"
+        os.environ["PREVUFLOW_HEBERGE"] = "1"
         return self
 
     def __exit__(self, *a):
-        os.environ.pop("DAYZON_HEBERGE", None)
+        os.environ.pop("PREVUFLOW_HEBERGE", None)
 
 
 BAC = Path(tempfile.mkdtemp(prefix="dz_cloison_"))
@@ -129,7 +129,7 @@ with Heberge():
     verifier("profil conserve", repris.profil, "Entreprise")
 
     nom = sv.nom_fichier_export()
-    verifier("le nom de fichier est date", nom.startswith("dayzon_"), True)
+    verifier("le nom de fichier est date", nom.startswith("prevuflow_"), True)
     verifier("... et se termine en .json", nom.endswith(".json"), True)
 
 

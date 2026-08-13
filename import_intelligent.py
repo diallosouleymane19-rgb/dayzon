@@ -1,6 +1,6 @@
 """
 IMPORT INTELLIGENT DE RELEVES
-Dayzon — SMD Global Consulting LLC
+PrevuFlow — SMD Global Consulting LLC
 
 Lit n'importe quel releve bancaire ou tableur, reconnait tout seul les colonnes,
 puis deduit les operations recurrentes a projeter dans le futur.

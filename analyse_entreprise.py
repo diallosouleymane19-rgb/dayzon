@@ -1,6 +1,6 @@
 """
 INDICATEURS FINANCIERS D'ENTREPRISE
-Dayzon — SMD Global Consulting LLC
+PrevuFlow — SMD Global Consulting LLC
 
 Analyse financiere pure. Aucun plan comptable, aucun referentiel national.
 

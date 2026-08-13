@@ -1,6 +1,6 @@
 """
 VERIFICATION EN EXECUTION REELLE — les quatre langues
-Dayzon — SMD Global Consulting LLC
+PrevuFlow — SMD Global Consulting LLC
 
 Un fichier de traduction complet ne prouve rien : une cle peut exister sans
 etre branchee, et l'ecran reste alors en francais. Ce test lance vraiment
@@ -23,7 +23,7 @@ from pathlib import Path
 # recharge — langue comprise. Le test en francais imposait alors sa langue
 # aux trois suivants, et l'anglais se retrouvait plein de francais.
 # On se declare heberge : aucune lecture, aucune ecriture de fichier.
-os.environ["DAYZON_HEBERGE"] = "1"
+os.environ["PREVUFLOW_HEBERGE"] = "1"
 
 from streamlit.testing.v1 import AppTest
 
@@ -176,7 +176,7 @@ def sans_reseau(at: AppTest) -> None:
         prix={(p, pe): f"price_{p.value}_{pe.value}"
               for p in (Plan.PARTICULIER, Plan.ENTREPRISE)
               for pe in (Periode.MENSUELLE, Periode.ANNUELLE)},
-        url_retour="https://dayzon.streamlit.app")
+        url_retour="https://prevuflow.streamlit.app")
     at.session_state["abonnement"] = Abonnement(plan=Plan.DECOUVERTE)
     at.session_state["page"] = "abonnement"
 

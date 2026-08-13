@@ -1,9 +1,9 @@
-# Dayzon
+# PrevuFlow
 
 **Votre solde, n'importe quel jour à venir.**
 *See your cash, day by day.*
 
-Dayzon place vos revenus, vos factures et vos dépenses aux dates où ils tombent,
+PrevuFlow place vos revenus, vos factures et vos dépenses aux dates où ils tombent,
 puis affiche votre solde pour chaque jour à venir — **sans jamais se connecter
 à votre banque**.
 
@@ -16,17 +16,17 @@ l'argent. Elle fait faillite parce qu'elle n'en a plus **le jour où il faut
 payer**. Ce sont deux problèmes différents, et le second n'est visible que sur
 un calendrier.
 
-## Ce qui distingue Dayzon
+## Ce qui distingue PrevuFlow
 
 Les outils comparables partent tous d'une connexion bancaire automatique.
-Dayzon part d'un fichier — un relevé PDF, un CSV, un tableau Excel.
+PrevuFlow part d'un fichier — un relevé PDF, un CSV, un tableau Excel.
 
 Ce n'est pas un pis-aller. C'est ce qui le rend utilisable **là où l'open
 banking n'existe pas**, et **là où l'utilisateur ne souhaite pas confier ses
 identifiants bancaires**.
 
 Aucun plan comptable national : ni PCG, ni SYSCOHADA, ni IFRS, ni US GAAP.
-Dayzon travaille sur ce qu'une entreprise possède partout dans le monde — des
+PrevuFlow travaille sur ce qu'une entreprise possède partout dans le monde — des
 flux bancaires et des factures. Le même produit sert à Dakar, Istanbul, Londres
 ou Austin, sans adaptation.
 
@@ -159,7 +159,7 @@ requiert une autorisation écrite.
 
 ## Avertissement
 
-Dayzon produit des **projections indicatives**. Il ne constitue ni un conseil
+PrevuFlow produit des **projections indicatives**. Il ne constitue ni un conseil
 comptable, ni fiscal, ni juridique, ni en investissement. Chaque chiffre doit
 être vérifié avant toute décision.
 

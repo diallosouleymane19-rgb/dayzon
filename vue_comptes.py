@@ -1,6 +1,6 @@
 """
 PANNEAU DES COMPTES ET DES TAUX
-Dayzon — SMD Global Consulting LLC
+PrevuFlow — SMD Global Consulting LLC
 
 Remplace l'ancien réglage à solde unique. Trois choses y sont visibles :
 
@@ -270,7 +270,7 @@ def _emporter_et_reprendre() -> None:
         st.error(str(err))
 
     st.caption("**" + commun.t("sauv.reprendre") + "**")
-    depose = st.file_uploader("Fichier Dayzon", type=["json"],
+    depose = st.file_uploader("Fichier PrevuFlow", type=["json"],
                               key="reprise_fichier",
                               label_visibility="collapsed")
     if depose is not None and st.button(commun.t("sauv.charger"),

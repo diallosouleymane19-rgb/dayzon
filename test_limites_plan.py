@@ -1,6 +1,6 @@
 """
 VERIFICATION DES LIMITES DE FORMULE — en execution reelle
-Dayzon — SMD Global Consulting LLC
+PrevuFlow — SMD Global Consulting LLC
 
 Le module `abonnement` sait depuis longtemps repondre a « cette personne
 a-t-elle le droit ? ». Pendant des semaines, aucun ecran ne lui posait la
@@ -20,7 +20,7 @@ import sys
 from datetime import date, timedelta
 from decimal import Decimal
 
-os.environ["DAYZON_HEBERGE"] = "1"
+os.environ["PREVUFLOW_HEBERGE"] = "1"
 
 from streamlit.testing.v1 import AppTest                        # noqa: E402
 
@@ -50,7 +50,7 @@ CONFIG = ConfigStripe(
     prix={(p, pe): f"price_{p.value}_{pe.value}"
           for p in (Plan.PARTICULIER, Plan.ENTREPRISE)
           for pe in (Periode.MENSUELLE, Periode.ANNUELLE)},
-    url_retour="https://dayzon.streamlit.app")
+    url_retour="https://prevuflow.streamlit.app")
 
 DEMAIN = date.today() + timedelta(days=30)
 

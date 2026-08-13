@@ -1,6 +1,6 @@
 """
 ÉCRAN DE COMPTE — connexion, inscription, état de la session
-Dayzon — SMD Global Consulting LLC
+PrevuFlow — SMD Global Consulting LLC
 
 Trois principes de rédaction, parce qu'un écran de connexion est le moment
 où l'on perd le plus de gens :

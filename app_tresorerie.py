@@ -1,5 +1,5 @@
 """
-DAYZON — GESTION FINANCIÈRE
+PREVUFLOW — GESTION FINANCIÈRE
 SMD Global Consulting LLC
 
 Deux profils, un seul moteur :
@@ -22,7 +22,7 @@ from moteur_tresorerie import Recurrence
 from vue_compte import bandeau_essai, panneau_compte
 from vue_comptes import panneau_comptes, panneau_sauvegarde, panneau_taux
 
-st.set_page_config(page_title="Dayzon — Gestion financière",
+st.set_page_config(page_title="PrevuFlow — Gestion financière",
                    page_icon="app/static/favicon.png", layout="wide",
                    initial_sidebar_state="expanded")
 
@@ -43,7 +43,7 @@ commun.initialiser()
 # ---------------------------------------------------------------------------
 
 with st.sidebar:
-    st.title("Dayzon")
+    st.title("PrevuFlow")
     commun.selecteur_langue()
     st.caption(commun.t("app.signature"))
 
@@ -462,5 +462,5 @@ else:
                 } for p in syn.postes]), use_container_width=True, hide_index=True)
 
 
-st.caption("Dayzon — SMD Global Consulting LLC · " +
+st.caption("PrevuFlow — SMD Global Consulting LLC · " +
            commun.t("gen.avertissement"))

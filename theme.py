@@ -1,6 +1,6 @@
 """
 THÈME — apparence commune à tous les écrans
-Dayzon — SMD Global Consulting LLC
+PrevuFlow — SMD Global Consulting LLC
 
 Ce module ne contient aucune logique métier : il fabrique du HTML et pose
 le style. Il est le seul endroit où une couleur est écrite en dur.

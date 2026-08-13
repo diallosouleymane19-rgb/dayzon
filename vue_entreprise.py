@@ -1,6 +1,6 @@
 """
 PROFIL ENTREPRISE — affichage
-Dayzon — SMD Global Consulting LLC
+PrevuFlow — SMD Global Consulting LLC
 
 Analyse financiere pure : aucun plan de comptes, aucun referentiel national.
 Les indicateurs portent les memes noms partout dans le monde.

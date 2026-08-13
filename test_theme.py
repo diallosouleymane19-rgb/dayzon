@@ -16,7 +16,7 @@ import re
 import sys
 from pathlib import Path
 
-os.environ["DAYZON_HEBERGE"] = "1"
+os.environ["PREVUFLOW_HEBERGE"] = "1"
 
 echecs = 0
 

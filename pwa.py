@@ -1,6 +1,6 @@
 """
-PWA — Dayzon installable sur smartphone
-Dayzon — SMD Global Consulting LLC
+PWA — PrevuFlow installable sur smartphone
+PrevuFlow — SMD Global Consulting LLC
 
 Rend l'application installable depuis le navigateur : icône sur l'écran
 d'accueil, plein écran, sans passer par l'App Store ni Google Play.
@@ -34,11 +34,11 @@ _SCRIPT = """
 (function () {
   // Le composant vit dans un cadre isolé ; la vraie page est au-dessus.
   var doc = window.parent && window.parent.document;
-  if (!doc || doc.getElementById('dayzon-pwa')) return;
+  if (!doc || doc.getElementById('prevuflow-pwa')) return;
 
   var marqueur = doc.createElement('meta');
-  marqueur.id = 'dayzon-pwa';
-  marqueur.name = 'dayzon-pwa';
+  marqueur.id = 'prevuflow-pwa';
+  marqueur.name = 'prevuflow-pwa';
   marqueur.content = '1';
   doc.head.appendChild(marqueur);
 
@@ -52,7 +52,7 @@ _SCRIPT = """
 
   // iOS ignore le manifeste : il lui faut ses propres balises.
   ajouter('meta', {name: 'apple-mobile-web-app-capable', content: 'yes'});
-  ajouter('meta', {name: 'apple-mobile-web-app-title', content: 'Dayzon'});
+  ajouter('meta', {name: 'apple-mobile-web-app-title', content: 'PrevuFlow'});
   ajouter('meta', {name: 'apple-mobile-web-app-status-bar-style',
                    content: 'black-translucent'});
   ajouter('link', {rel: 'apple-touch-icon',

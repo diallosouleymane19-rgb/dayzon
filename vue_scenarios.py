@@ -1,6 +1,6 @@
 """
 ONGLET SCÉNARIOS — affichage partagé
-Dayzon — SMD Global Consulting LLC
+PrevuFlow — SMD Global Consulting LLC
 
 Le même écran sert au particulier et à l'entreprise ; seul le catalogue
 d'hypothèses proposées change.
