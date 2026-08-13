@@ -57,6 +57,15 @@ with st.sidebar:
         st.session_state.page = "abonnement"
         st.rerun()
 
+    # L'accueil ne se remontre jamais de lui-même : réafficher une page de
+    # vente à quelqu'un qui travaille le fait partir. Ce bouton le rappelle
+    # pour qui le cherche.
+    if st.session_state.get("accueil_vu"):
+        if st.button(commun.t("acc.voir_presentation"),
+                     use_container_width=True, key="revoir_accueil"):
+            st.session_state.pop("accueil_vu", None)
+            st.rerun()
+
     st.divider()
 
     _PROFILS = ["Particulier", "Entreprise"]
@@ -194,6 +203,14 @@ st.title(commun.t("app.titre_page") + " — " +
 # Page d'abonnement : elle remplace tout le corps, dans les deux profils.
 # Stripe renvoie sur `?paiement=ok` — on l'ouvre alors sans rien demander,
 # sinon le règlement se terminerait sur un écran muet.
+if st.session_state.get("page") == "juridique":
+    from vue_juridique import afficher_juridique
+    afficher_juridique()
+    if st.button(commun.t("app.retour"), key="quitter_juridique"):
+        st.session_state.pop("page", None)
+        st.rerun()
+    st.stop()
+
 if (st.session_state.get("page") == "abonnement"
         or st.query_params.get("paiement")):
     from vue_abonnement import afficher_abonnement
@@ -201,6 +218,13 @@ if (st.session_state.get("page") == "abonnement"
     if st.button(commun.t("app.retour"), key="quitter_abonnement"):
         st.session_state.pop("page", None)
         st.rerun()
+    st.stop()
+
+# Écran d'accueil : un visiteur qui n'a encore rien fait arrive sur ce que
+# fait l'outil, pas sur un formulaire vide. Il s'efface dès qu'on entre.
+from vue_accueil import afficher_accueil, doit_afficher
+if doit_afficher():
+    afficher_accueil()
     st.stop()
 
 from vue_abonnement import bandeau_abonnement
@@ -467,3 +491,6 @@ else:
 
 st.caption("PrevuFlow — SMD Global Consulting LLC · " +
            commun.t("gen.avertissement"))
+
+from vue_juridique import lien_pied_de_page
+lien_pied_de_page()
