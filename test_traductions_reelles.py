@@ -264,6 +264,83 @@ for titre, jours_ecoules, attendu in (("essai neuf", 0, "14"),
              any(b.label for b in at.button if "formules" in b.label))
 
 
+print("\n2 quater. Le profil Entreprise s'affiche dans la langue choisie")
+
+# C'est l'ecran le plus cher — le plan a 29 $ — et il est reste francais
+# jusqu'au 13 aout 2026 : aucun test ne l'ouvrait. Un client anglophone
+# lisait ses propres indicateurs en francais.
+def avec_factures(at: AppTest) -> None:
+    """Des factures clients et fournisseurs, pour que tout l'ecran se rende."""
+    from datetime import date, timedelta
+    from decimal import Decimal
+
+    from analyse_entreprise import Facture, LectureFactures
+    from import_intelligent import Mouvement
+
+    jour = date.today()
+    at.session_state["mouvements"] = [
+        Mouvement(jour - timedelta(days=n * 6), "Achat", Decimal("-410"))
+        for n in range(8)
+    ] + [Mouvement(jour - timedelta(days=n * 30), "Client", Decimal("5200"))
+         for n in range(3)]
+
+    clients = [
+        Facture(date_emission=jour - timedelta(days=70), tiers="Alpha",
+                montant=Decimal("9000"), sens="client",
+                echeance=jour - timedelta(days=40)),
+        Facture(date_emission=jour - timedelta(days=50), tiers="Beta",
+                montant=Decimal("2000"), sens="client",
+                echeance=jour - timedelta(days=20),
+                date_paiement=jour - timedelta(days=15)),
+    ]
+    fournisseurs = [
+        Facture(date_emission=jour - timedelta(days=60), tiers="Gamma",
+                montant=Decimal("3000"), sens="fournisseur",
+                echeance=jour - timedelta(days=30),
+                date_paiement=jour - timedelta(days=28)),
+    ]
+    at.session_state["lecture_fc"] = LectureFactures(
+        clients, {"date_emission": "Date"}, 0, Decimal("11000"))
+    at.session_state["lecture_ff"] = LectureFactures(
+        fournisseurs, {"date_emission": "Date"}, 0, Decimal("3000"))
+    at.session_state["profil"] = "Entreprise"
+
+
+for code in ("fr", "en", "es", "zh"):
+    at = AppTest.from_file("app_tresorerie.py", default_timeout=180)
+    at.session_state["langue"] = code
+    avec_donnees(at)
+    avec_factures(at)
+    at.run()
+
+    verifier(f"{code} : le profil Entreprise demarre", not at.exception)
+    if at.exception:
+        print(f"          {at.exception[0].message[:170]}")
+        continue
+
+    affiches = textes_affiches(at)
+    verifier(f"{code} : l'ecran Entreprise est rendu ({len(affiches)} elements)",
+             len(affiches) > 20)
+
+    if code == "fr":
+        continue
+
+    restes = sorted({s for s in SENTINELLES if any(s in t for t in affiches)})
+    verifier(f"{code} : aucun texte francais residuel en Entreprise", not restes)
+    for r in restes[:8]:
+        print(f"          · {r[:74]}")
+
+    MOTS_ENT = ("Vous ", "Votre ", "Vos ", "par mois", "jours en moyenne",
+                "trésorerie", "factures", "clients vous", "d'affaires",
+                "n'est", "aucune", "argent")
+    suspects = sorted({t[:80] for t in affiches
+                       if any(m in t for m in MOTS_ENT)})
+    verifier(f"{code} : aucun mot francais non declare en Entreprise",
+             not suspects)
+    for s in suspects[:8]:
+        print(f"          ? {s}")
+
+
 print("\n3. Les valeurs internes ne dependent pas de la langue")
 
 # Une etiquette traduite ne doit jamais servir de cle : sinon changer de

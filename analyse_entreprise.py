@@ -26,6 +26,17 @@ from decimal import Decimal, ROUND_HALF_UP
 import pandas as pd
 
 
+def _texte(cle: str, **variables) -> str:
+    """
+    Repli quand l'interface ne fournit pas sa propre traduction.
+
+    Ce module reste pur : il ne connait ni Streamlit ni la langue de
+    lecture. L'appelant la lui donne ; sans cela, il repond en francais.
+    """
+    from langues import traduire
+    return traduire(cle, "fr", **variables)
+
+
 def _sans_accent(t: str) -> str:
     t = unicodedata.normalize("NFKD", str(t))
     return "".join(c for c in t if not unicodedata.combining(c)).upper()
@@ -182,7 +193,7 @@ class LectureFactures:
 
     def resume(self) -> str:
         paires = [f"{role} → « {col} »" for role, col in self.colonnes_reconnues.items()]
-        return " · ".join(paires) if paires else "aucune colonne reconnue"
+        return " · ".join(paires) if paires else _texte("ent.aucune_colonne")
 
 
 def lire_factures(fichier, nom_fichier: str = "", sens: str = "client",
@@ -225,11 +236,10 @@ def lire_factures(fichier, nom_fichier: str = "", sens: str = "client",
 
     if "date_emission" not in trouvees or "montant" not in trouvees:
         manque = [r for r in ("date_emission", "montant") if r not in trouvees]
-        raise ValueError(
-            "Impossible de lire ce fichier : il manque "
-            + " et ".join({"date_emission": "une colonne de date",
-                           "montant": "une colonne de montant"}[m] for m in manque)
-            + f". Colonnes trouvées : {', '.join(cols[:12])}")
+        raise ValueError(_texte(
+            "ent.colonne_manquante",
+            manque=" / ".join(_texte("ent.col_" + m) for m in manque),
+            colonnes=", ".join(cols[:12])))
 
     factures: list[Facture] = []
     ignorees = 0
@@ -256,7 +266,7 @@ def lire_factures(fichier, nom_fichier: str = "", sens: str = "client",
 
         factures.append(Facture(
             date_emission=jour,
-            tiers=tiers or "Non identifié",
+            tiers=tiers or _texte("ent.non_identifie"),
             montant=abs(_arr(montant)),
             sens=sens,
             devise=devise or devise_defaut,
@@ -358,112 +368,119 @@ class IndicateursEntreprise:
     def _n(v) -> str:
         return f"{abs(float(v)):,.0f}".replace(",", " ")
 
-    def messages(self) -> list[tuple[str, str]]:
-        """Chaque message dit un fait, puis ce qu'il implique."""
+    def messages(self, t=None, nombre=None,
+                 symbole: str = "€") -> list[tuple[str, str]]:
+        """
+        Chaque message dit un fait, puis ce qu'il implique.
+
+        `t` traduit, `nombre` met les montants à la typographie du lecteur.
+        Les deux sont injectés : ce module calcule, il ne sait ni dans
+        quelle langue ni dans quelle devise on le lira. Ces phrases sont
+        restées françaises jusqu'au 13 août 2026 — un client anglophone
+        payant le plan Entreprise lisait ses propres indicateurs en
+        français.
+        """
+        t = t or _texte
+        somme = nombre or self._n
+
         out: list[tuple[str, str]] = []
 
         # --- Runway : le message le plus important quand la marge est negative
         if self.burn_rate < 0:
             if self.runway_mois is not None:
+                perte = somme(abs(float(self.burn_rate)))
                 if self.runway_mois < 3:
-                    out.append(("alerte",
-                        f"Vous perdez {self._n(self.burn_rate)} par mois. "
-                        f"Au rythme actuel, votre trésorerie est épuisée dans "
-                        f"{self.runway_mois:.1f} mois. C'est le point à traiter avant tout autre."))
+                    out.append(("alerte", t("ent.runway_court", somme=perte,
+                                            sym=symbole,
+                                            mois=f"{self.runway_mois:.1f}")))
                 elif self.runway_mois < 6:
-                    out.append(("attention",
-                        f"Vous perdez {self._n(self.burn_rate)} par mois. "
-                        f"Il vous reste {self.runway_mois:.1f} mois de trésorerie. "
-                        f"C'est le délai dont vous disposez pour redresser ou lever des fonds."))
+                    out.append(("attention", t("ent.runway_moyen", somme=perte,
+                                               sym=symbole,
+                                               mois=f"{self.runway_mois:.1f}")))
                 else:
-                    out.append(("info",
-                        f"Vous perdez {self._n(self.burn_rate)} par mois, mais votre "
-                        f"trésorerie couvre encore {self.runway_mois:.0f} mois."))
+                    out.append(("info", t("ent.runway_long", somme=perte,
+                                          sym=symbole,
+                                          mois=f"{self.runway_mois:.0f}")))
         elif self.resultat_par_mois > 0:
-            out.append(("bon",
-                f"Votre activité dégage {self._n(self.resultat_par_mois)} par mois, "
-                f"soit {self.marge:.0f} % de ce que vous encaissez."))
+            out.append(("bon", t(
+                "ent.benefice", somme=somme(abs(float(self.resultat_par_mois))),
+                sym=symbole, p=f"{self.marge:.0f}")))
 
         # --- Point mort
         if self.point_mort is not None and self.encaissements_par_mois > 0:
             ecart = float(self.encaissements_par_mois - self.point_mort)
+            seuil = somme(abs(float(self.point_mort)))
             if ecart < 0:
-                out.append(("alerte",
-                    f"Il vous manque {self._n(ecart)} de chiffre d'affaires mensuel "
-                    f"pour couvrir vos charges. Votre point d'équilibre se situe à "
-                    f"{self._n(self.point_mort)} par mois."))
+                out.append(("alerte", t("ent.sous_point_mort",
+                                        manque=somme(abs(ecart)),
+                                        seuil=seuil, sym=symbole)))
             else:
                 marge_secu = ecart / float(self.encaissements_par_mois) * 100
                 out.append(("bon" if marge_secu > 20 else "attention",
-                    f"Votre point d'équilibre est à {self._n(self.point_mort)} par mois. "
-                    f"Vous êtes au-dessus de {marge_secu:.0f} % — c'est la baisse "
-                    f"d'activité que vous pouvez encaisser avant de perdre de l'argent."))
+                            t("ent.au_dessus_point_mort", seuil=seuil,
+                              sym=symbole, p=f"{marge_secu:.0f}")))
 
         # --- Impayes
         if self.encours_client > 0:
             part_retard = (float(self.retard_client / self.encours_client) * 100
                            if self.encours_client else 0)
             if self.retard_client > 0 and part_retard > 25:
-                out.append(("alerte",
-                    f"{self._n(self.retard_client)} sont en retard de paiement, "
-                    f"soit {part_retard:.0f} % de ce que vos clients vous doivent. "
-                    f"Cet argent est déjà gagné : le relancer coûte moins cher "
-                    f"que de vendre davantage."))
+                out.append(("alerte", t(
+                    "ent.impayes_lourds",
+                    somme=somme(abs(float(self.retard_client))), sym=symbole,
+                    p=f"{part_retard:.0f}")))
             elif self.retard_client > 0:
-                out.append(("attention",
-                    f"{self._n(self.retard_client)} sont en retard de paiement "
-                    f"sur {self._n(self.encours_client)} dus par vos clients."))
+                out.append(("attention", t(
+                    "ent.impayes",
+                    somme=somme(abs(float(self.retard_client))),
+                    total=somme(abs(float(self.encours_client))),
+                    sym=symbole)))
 
         # --- Delais
         if self.dso is not None:
             if self.dso > 60:
-                out.append(("attention",
-                    f"Vos clients vous règlent en {self.dso:.0f} jours en moyenne. "
-                    f"Chaque tranche de 10 jours gagnée libère environ "
-                    f"{self._n(self.encaissements_par_mois / 3)} de trésorerie."))
+                out.append(("attention", t(
+                    "ent.dso_long", jours=f"{self.dso:.0f}",
+                    somme=somme(abs(float(self.encaissements_par_mois) / 3)),
+                    sym=symbole)))
             else:
-                out.append(("info",
-                    f"Vos clients vous règlent en {self.dso:.0f} jours en moyenne."))
+                out.append(("info", t("ent.dso", jours=f"{self.dso:.0f}")))
 
         ecart_f = self.ecart_de_financement
         if ecart_f is not None and ecart_f > 15:
-            out.append(("attention",
-                f"Vous payez vos fournisseurs en {self.dpo:.0f} jours mais êtes "
-                f"payé en {self.dso:.0f} jours. Vous avancez {ecart_f:.0f} jours "
-                f"de trésorerie à vos clients — c'est de l'argent immobilisé."))
+            out.append(("attention", t("ent.finance_ses_clients",
+                                       dpo=f"{self.dpo:.0f}",
+                                       dso=f"{self.dso:.0f}",
+                                       ecart=f"{ecart_f:.0f}")))
         elif ecart_f is not None and ecart_f < -15:
-            out.append(("bon",
-                f"Vous encaissez en {self.dso:.0f} jours et payez en "
-                f"{self.dpo:.0f} jours. Votre activité se finance toute seule."))
+            out.append(("bon", t("ent.autofinance", dso=f"{self.dso:.0f}",
+                                 dpo=f"{self.dpo:.0f}")))
 
         # --- Dependance client
         if self.concentration:
             premier = self.concentration[0]
             if premier.part > 0.5:
-                out.append(("alerte",
-                    f"« {premier.tiers} » représente {premier.part * 100:.0f} % de votre "
-                    f"chiffre d'affaires. Si ce client part, plus de la moitié de "
-                    f"votre activité disparaît."))
+                out.append(("alerte", t("ent.client_majeur",
+                                        client=premier.tiers,
+                                        p=f"{premier.part * 100:.0f}")))
             elif premier.part > 0.3:
-                out.append(("attention",
-                    f"« {premier.tiers} » pèse {premier.part * 100:.0f} % de votre chiffre "
-                    f"d'affaires. Une dépendance à surveiller."))
+                out.append(("attention", t("ent.client_important",
+                                           client=premier.tiers,
+                                           p=f"{premier.part * 100:.0f}")))
 
         # --- Structure de couts
         if self.part_fixe > 70 and self.charges_fixes > 0:
-            out.append(("attention",
-                f"{self.part_fixe:.0f} % de vos charges sont fixes. En cas de baisse "
-                f"d'activité, elles continuent de courir — votre marge de manœuvre "
-                f"à court terme est étroite."))
+            out.append(("attention", t("ent.msg_charges_fixes",
+                                       p=f"{self.part_fixe:.0f}")))
 
         # --- Croissance
         if self.croissance is not None:
             if self.croissance > 5:
-                out.append(("bon", f"Vos encaissements progressent de "
-                                   f"{self.croissance:.0f} % par mois."))
+                out.append(("bon", t("ent.croissance",
+                                     p=f"{self.croissance:.0f}")))
             elif self.croissance < -5:
-                out.append(("attention", f"Vos encaissements reculent de "
-                                         f"{abs(self.croissance):.0f} % par mois."))
+                out.append(("attention", t("ent.recul",
+                                           p=f"{abs(self.croissance):.0f}")))
 
         return out
 
